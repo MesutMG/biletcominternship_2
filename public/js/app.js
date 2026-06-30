@@ -1,5 +1,5 @@
 const resultDiv = document.getElementById('result');
-/*const fillAllError = document.getElementById('fillAllError');
+const fillAllError = document.getElementById('fillAllError');
 const tabloyeri = document.getElementById('TABLOID');
 const insideTable = document.getElementById('insideTable');
 const tabloForm = document.getElementById('tabloForm');
@@ -7,25 +7,21 @@ const pagination = document.getElementById('pagination');
 const sortingTable = document.getElementById('sorting-table');
 
 const filtreleBtn = document.getElementById('submitfilter');
-const rowcountBtn = document.getElementById('rowcountBtn');*/
-resultDiv.innerHTML="AAAAAAA";
-/*
+const rowcountBtn = document.getElementById('rowcountBtn');
+
 let globalSorting = ['ID', 'ASC'];
 let globalFiltering = ['', '', '', '', '', ''];
 
-//add user input for tablecount
 var tablecount = 10;
 var pagenum = 1;
 var totalpages = 1;
 const currentTable = [];
 const tempEditing = [];
-//wirte update table for arrows, fix
-//function updateTableHeader(){}
 
 async function createTableHTML(data) {
     let HTML = `\n<table>`;
-//data.length - 1 because the last element of the data array is the total filtered rowcount
-    for (let i = 0; i < data.length - 1; i++) {
+
+    for (let i = 0; i < data.length; i++) {
         HTML += `<tr>
             <td id="${i}_edit" class="rowedit">Düzenle</td>
             <td id="${i}_id">${data[i].ID}</td>
@@ -56,89 +52,107 @@ async function createPagination(totalpage, currentpage){
     pagination.innerHTML = HTML;
 }
 
-async function loadTable(sorting = globalSorting, filters = globalFiltering, requestedcount = tablecount, pg = pagenum){
+async function loadTable(sorting = globalSorting, filters = globalFiltering, requestedcount = tablecount, pg = pagenum) {
     try {
-        var response = await fetch('api.php', {
-            method: 'POST',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-			body: `action=tabloIstegi&filterId=${encodeURIComponent(filters[0])}&filterName=${encodeURIComponent(filters[1])}&filterLastName=${encodeURIComponent(filters[2])}&filterNum=${encodeURIComponent(filters[3])}&filterMaj=${encodeURIComponent(filters[4])}&filterAge=${encodeURIComponent(filters[5])}&sortparam=${sorting[0]}&sortdir=${sorting[1]}&requestedcount=${requestedcount}&pagenum=${pg}`
+        const queryParams = new URLSearchParams({
+            sortparam: sorting[0],
+            sortdir: sorting[1],
+            requestedcount: requestedcount,
+            page: pg,
+            filterId: filters[0],
+            filterName: filters[1],
+            filterLastName: filters[2],
+            filterNum: filters[3],
+            filterMaj: filters[4],
+            filterAge: filters[5]
+        });
+
+        const res = await fetch(`/api/students?${queryParams.toString()}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
         });
         
-        const data = await response.json();
+        const response = await res.json();
 
-        totalpages = Math.ceil((data[data.length - 1].count) / tablecount);
+        totalpages = Math.ceil(response.total / response.per_page);
 
-        createTableHTML(data);
+        createTableHTML(response.data);
         createPagination(totalpages, pg);
 
     } catch (error) {
-        resultDiv.textContent = `İstek başarısız: ${error.message}
-        Hata kodu: 001`;
-		resultDiv.style.color = '#7e0be2';
+        resultDiv.textContent = `İstek başarısız: ${error.message} (Hata kodu: 001)`;
+        resultDiv.style.color = '#7e0be2';
     }
 }
 
 async function ogrenciEkle(ogrenci_ad, ogrenci_soyad, ogrenci_no, ogrenci_bolum, ogrenci_yas) {
     try {
-        var response = await fetch('api.php', {
+        const res = await fetch(`/api/students`, {
             method: 'POST',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-			body: `action=ogrenciEkle&studentName=${encodeURIComponent(ogrenci_ad)}&studentLastName=${encodeURIComponent(ogrenci_soyad)}&studentNum=${encodeURIComponent(ogrenci_no)}&studentMajor=${encodeURIComponent(ogrenci_bolum)}&studentAge=${encodeURIComponent(ogrenci_yas)}`
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json' 
+            },
+            body: JSON.stringify({
+                studentName: ogrenci_ad,
+                studentLastName: ogrenci_soyad,
+                studentNum: ogrenci_no,
+                studentMajor: ogrenci_bolum,
+                studentAge: ogrenci_yas
+            })
         });
-        const data = await response.json();
         
-        if(data.status === 'success'){
-            resultDiv.textContent = data.message;
-			resultDiv.style.color = '#4CAF50';
+        const serverData = await res.json();
+
+        if(res.ok && serverData.status === 'success'){
+            resultDiv.textContent = serverData.message;
+            resultDiv.style.color = '#4CAF50';
         } else {
-            resultDiv.textContent = data.message;
-			resultDiv.style.color = '#f44336';
-		}
+            resultDiv.textContent = serverData.message || "Ekleme işlemi başarısız.";
+            resultDiv.style.color = '#f44336';
+        }
     } catch (error) {
-        resultDiv.textContent = `İstek başarısız: ${error.message}
-        Hata kodu: 002`;
-		resultDiv.style.color = '#7e0be2';
+        resultDiv.textContent = `İstek başarısız: ${error.message}\nHata kodu: 002`;
+        resultDiv.style.color = '#7e0be2';
     }
 }
 
-async function ogrenciSil(deleteNum){
+async function ogrenciSil(deleteNum) {
     try {
-        var response = await fetch('api.php', {
-            method: 'POST',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-			body: `action=ogrenciSil&deleteNum=${encodeURIComponent(deleteNum)}&requestedcount=${tablecount}`
+        const res = await fetch(`/api/students/${deleteNum}`, {
+            method: 'DELETE',
+            headers: { 'Accept': 'application/json' }
         });
         
-        const data = await response.json();
+        const serverData = await res.json();
 
-        if(data.status === 'success'){
-            resultDiv.textContent = data.message;
-			resultDiv.style.color = '#4CAF50';
+        if(res.ok && serverData.status === 'success'){
+            resultDiv.textContent = serverData.message;
+            resultDiv.style.color = '#4CAF50';
         } else {
-            resultDiv.textContent = `${data.message}`;
-			resultDiv.style.color = '#f44336';
-		}
+            resultDiv.textContent = serverData.message || "Silme işlemi başarısız.";
+            resultDiv.style.color = '#f44336';
+        }
     } catch (error) {
-        resultDiv.textContent = `İstek başarısız: ${error.message}
-        Hata kodu: 003`;
-		resultDiv.style.color = '#7e0be2';
+        resultDiv.textContent = `İstek başarısız: ${error.message}\nHata kodu: 003`;
+        resultDiv.style.color = '#7e0be2';
     }
 }
 
 async function ogrenciEditButonu(editNum, index) {
     tempEditing[index] = [];
 
-    tempEditing[index][0] = document.getElementById(`${index}_ad`).innerText
-    tempEditing[index][1] = document.getElementById(`${index}_soyad`).innerText
-    tempEditing[index][2] = document.getElementById(`${index}_bolum`).innerText
-    tempEditing[index][3] = document.getElementById(`${index}_yas`).innerText
+    tempEditing[index][0] = document.getElementById(`${index}_ad`).innerText;
+    tempEditing[index][1] = document.getElementById(`${index}_soyad`).innerText;
+    tempEditing[index][2] = document.getElementById(`${index}_bolum`).innerText;
+    tempEditing[index][3] = document.getElementById(`${index}_yas`).innerText;
 
-    document.getElementById(`${index}_edit`).outerHTML = `<td id="${index}_edit_done" class="rowedit">Kaydet</td>`
+    document.getElementById(`${index}_edit`).outerHTML = `<td id="${index}_edit_done" class="rowedit">Kaydet</td>`;
     document.getElementById(`${index}_ad`).innerHTML = `<form><input id="${index}_ad_form" value="${document.getElementById(`${index}_ad`).innerText}"></form>`;
     document.getElementById(`${index}_soyad`).innerHTML = `<form><input id="${index}_soyad_form" value="${document.getElementById(`${index}_soyad`).innerText}"></form>`;
     document.getElementById(`${index}_bolum`).innerHTML = `<form><input id="${index}_bolum_form" value="${document.getElementById(`${index}_bolum`).innerText}"></form>`;
     document.getElementById(`${index}_yas`).innerHTML = `<form><input id="${index}_yas_form" value="${document.getElementById(`${index}_yas`).innerText}"></form>`;
-    document.getElementById(`${index}_delete`).outerHTML = `<td id="${index}_edit_cancel" class="rowedit">Vazgeç</td>`
+    document.getElementById(`${index}_delete`).outerHTML = `<td id="${index}_edit_cancel" class="rowedit">Vazgeç</td>`;
 }
 
 async function ogrenciEditKaydet(editNum, index) {
@@ -146,7 +160,6 @@ async function ogrenciEditKaydet(editNum, index) {
     let editLastName = document.getElementById(`${index}_soyad_form`).value.trim();
     let editMaj = document.getElementById(`${index}_bolum_form`).value.trim();
     let editAge = document.getElementById(`${index}_yas_form`).value;
-    
     
     if(!editName) {editName = tempEditing[index][0];}
     if(!editLastName) {editLastName = tempEditing[index][1];}
@@ -161,16 +174,25 @@ async function ogrenciEditKaydet(editNum, index) {
     fillAllError.textContent = "";
 
     try {
-        var response = await fetch('api.php', {
-            method: 'POST',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-			body: `action=ogrenciEdit&editNum=${encodeURIComponent(editNum)}&editName=${encodeURIComponent(editName)}&editLastName=${encodeURIComponent(editLastName)}&editMaj=${encodeURIComponent(editMaj)}&editAge=${encodeURIComponent(editAge)}`
+        const res = await fetch(`/api/students/${editNum}`, {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json' 
+            },
+            body: JSON.stringify({
+                editName: editName,
+                editLastName: editLastName,
+                editMaj: editMaj,
+                editAge: editAge
+            })
         });
-        const data = await response.json();
         
-        if(data.status === 'success'){
-            resultDiv.textContent = data.message;
-			resultDiv.style.color = '#4CAF50';
+        const serverData = await res.json();
+
+        if(res.ok && serverData.status === 'success'){
+            resultDiv.textContent = serverData.message;
+            resultDiv.style.color = '#4CAF50';
 
             document.getElementById(`${index}_edit_done`).outerHTML = `<td id="${index}_edit" class="rowedit">Düzenle</td>`;
             document.getElementById(`${index}_ad`).innerHTML = `${editName}`;
@@ -180,13 +202,12 @@ async function ogrenciEditKaydet(editNum, index) {
             document.getElementById(`${index}_edit_cancel`).outerHTML = `<td id="${index}_delete" class="rowedit">Sil</td>`;
     
         } else {
-            resultDiv.textContent = `${data.message}`;
-			resultDiv.style.color = '#f44336';
-		}
+            resultDiv.textContent = `${serverData.message}`;
+            resultDiv.style.color = '#f44336';
+        }
     } catch (error) {
-        resultDiv.textContent = `İstek başarısız: ${error.message}
-        Hata kodu: 004`;
-		resultDiv.style.color = '#7e0be2';
+        resultDiv.textContent = `İstek başarısız: ${error.message}\nHata kodu: 004`;
+        resultDiv.style.color = '#7e0be2';
     }
 }
 
@@ -200,21 +221,18 @@ async function ogrenciEditVazgec(editNum, index) {
     tempEditing[index] = 0;
 }
 
-
 //-- Start of execution --
 loadTable(globalSorting, globalFiltering, tablecount, 1);
 
-//10, 15, 25, 50 row count button
 rowcountBtn.addEventListener('click', async (event) => {
     event.preventDefault();
     tablecount = document.getElementById('rowcount').value;
-    loadTable(globalSorting, globalFiltering, tablecount, 1);
+    pagenum = 1; // Always reset to page 1 when count changes
+    loadTable(globalSorting, globalFiltering, tablecount, pagenum);
 });
 
-//ogrenciEkle
 tabloForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    console.log("ogrenci ekle butonu");
     
     const ogrenci_ad = document.getElementById('OGRENCI-AD').value.trim();
     const ogrenci_soyad = document.getElementById('OGRENCI-SOYAD').value.trim();
@@ -233,11 +251,8 @@ tabloForm.addEventListener('submit', async (event) => {
     loadTable(globalSorting, globalFiltering, tablecount, pagenum);
 });
 
-//sort, filtre
 tabloyeri.addEventListener('click', async (event) => {
-//↓↑
     let names = ["ID", "AD", "SOYAD", "NO", "BOLUM", "YAS"];
-    
     let clickedBtn = event.target.getAttribute('data-id');
 
     if (clickedBtn) {
@@ -251,14 +266,11 @@ tabloyeri.addEventListener('click', async (event) => {
             if(globalSorting[1] === 'DESC'){
                 globalSorting[1] = 'ASC';
                 event.target.innerHTML = names[sortNum] + " ↑";
-            }
-            
-            else{
+            } else {
                 globalSorting[1] = 'DESC';
                 event.target.innerHTML = names[sortNum] + " ↓";
             }
-        }
-        else {
+        } else {
             globalSorting[1] = 'ASC';
             event.target.innerHTML = names[sortNum] + " ↑";
         }
@@ -266,7 +278,6 @@ tabloyeri.addEventListener('click', async (event) => {
         globalSorting[0] = names[sortNum];
         loadTable(globalSorting, globalFiltering, tablecount, pagenum);
     }
-
     else if (event.target.id === 'filtreleBtn'){
         event.preventDefault();
             
@@ -276,37 +287,31 @@ tabloyeri.addEventListener('click', async (event) => {
         const no_filter = document.getElementById('nofilter').value;
         const bolum_filter = document.getElementById('bolumfilter').value.trim();
         const yas_filter = document.getElementById('yasfilter').value;
-        console.log("filtrele butonu");
+        
         globalFiltering = [id_filter, ad_filter, soyad_filter, no_filter, bolum_filter, yas_filter];
         pagenum = 1;
         await loadTable(globalSorting, globalFiltering, tablecount, pagenum);
      }
 });
 
-//edit delete done cancel
 insideTable.addEventListener('click', async (event) => {
     for (let i = 0; i < tablecount; i++) {
-        //sil butonu
         if(event.target.id == `${i}_delete`){
             let deleteNum = currentTable[i];
-            console.log(deleteNum);
             await ogrenciSil(deleteNum);
             loadTable(globalSorting, globalFiltering, tablecount, pagenum);
             break;
         }
-        //duzenle butonu
         else if (event.target.id == `${i}_edit`){
             let editNum = currentTable[i];
             await ogrenciEditButonu(editNum, i);
             break;
         }
-        //kaydet butonu
         else if (event.target.id == `${i}_edit_done`){
             let editNum = currentTable[i];
             await ogrenciEditKaydet(editNum, i);
             break;
         }
-        //iptal butonu
         else if (event.target.id == `${i}_edit_cancel`){
             let editNum = currentTable[i];
             await ogrenciEditVazgec(editNum, i);
@@ -315,27 +320,16 @@ insideTable.addEventListener('click', async (event) => {
     }
 });
 
-//page buttons
 pagination.addEventListener('click', async (event) => {
     event.preventDefault();
     
     let clickedPage = event.target.getAttribute('data-page');
     
-    if (clickedPage) {
-        pagenum = parseInt(clickedPage);
-        loadTable(globalSorting, globalFiltering, tablecount, pagenum);
-    }
-
-    await loadTable(globalSorting, globalFiltering, tablecount, pagenum);
-    
-    if(event.target.id == 'pg_start')      pagenum = 1;
-
-    else if (event.target.id == 'pg_end')  pagenum = totalpages;
-
-    else if (event.target.id == 'pg_next') pagenum = Math.min(pagenum+1, totalpages);
-
-    else if (event.target.id == 'pg_prev') pagenum = Math.max(pagenum-1, 1);
+    if      (clickedPage)                   pagenum = parseInt(clickedPage);
+    else if (event.target.id == 'pg_start') pagenum = 1;
+    else if (event.target.id == 'pg_end')   pagenum = totalpages;
+    else if (event.target.id == 'pg_next')  pagenum = Math.min(pagenum + 1, totalpages);
+    else if (event.target.id == 'pg_prev')  pagenum = Math.max(pagenum - 1, 1);
 
     loadTable(globalSorting, globalFiltering, tablecount, pagenum);
 });
-*/
