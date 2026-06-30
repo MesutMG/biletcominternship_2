@@ -6,6 +6,6 @@
         <x-inertia::head />
     </head>
     <body>
-        <x-inertia::app id="custom-app-id" />
+        <x-inertia::app id="custom-app-id" />gggg
     </body>
 </html>

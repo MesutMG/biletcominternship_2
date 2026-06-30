@@ -1,27 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GeeksforGeeks</title>
+    <title>GfG</title>
     <style>
-        div {
-            font-size: 22px;
+        h1 {
+            color: green;
         }
     </style>
 </head>
 <body>
-    <div>
-        <?php                    
-            try {
-                if(DB::connection()->getPdo())
-                {
-                    echo "Successfully connected to the database => "
-                                  .DB::connection()->getDatabaseName();
-                }
-            }
-            catch (Exception $e) {
-                echo "Unable to connect";
-            }
-        ?>
-    </div>
+    <h1>GeeksforGeeks</h1>
+    <h3>A computer science portal for geeks</h3>
 </body>
 </html>
