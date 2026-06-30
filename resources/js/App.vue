@@ -1,0 +1,3 @@
+<template>
+        VUEVUEVUE
+</template>

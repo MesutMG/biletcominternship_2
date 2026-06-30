@@ -83,6 +83,10 @@
   <div id="fillAllError" style="margin: 10px;"></div>
   <div id="result" style="margin: 10px;"></div>
 
+  <body>
+    <div id="app"></div>
+  </body>
+
   @vite(['resources/css/app.css', 'resources/js/app.js'])
   <script></script>
 </body>

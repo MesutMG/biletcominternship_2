@@ -1,12 +1,29 @@
+import { createApp } from "vue";
+import PrimeVue from "primevue/config";
+import Aura from "@primeuix/themes/aura";
+
+const vueApp = createApp({});
+vueApp.use(PrimeVue, {
+    theme: {
+        preset: Aura,
+        options: {
+            darkModeSelector: ".p-dark",
+        }
+    },
+});
+
+if (document.getElementById('vue-root')) {
+    vueApp.mount("#vue-root");
+}
+
+document.addEventListener('DOMContentLoaded', () => {
 const resultDiv = document.getElementById('result');
 const fillAllError = document.getElementById('fillAllError');
 const tabloyeri = document.getElementById('TABLOID');
 const insideTable = document.getElementById('insideTable');
 const tabloForm = document.getElementById('tabloForm');
 const pagination = document.getElementById('pagination');
-const sortingTable = document.getElementById('sorting-table');
 
-const filtreleBtn = document.getElementById('submitfilter');
 const rowcountBtn = document.getElementById('rowcountBtn');
 
 let globalSorting = ['ID', 'ASC'];
@@ -33,19 +50,19 @@ async function createTableHTML(data) {
             <td id="${i}_delete" class="rowedit">Sil</td>
         </tr>
         \n`;
-        currentTable[i] = data[i].NUM;
+        currentTable[i] = data[i].NO;
     }
-    HTML += `</table>\n`
+    HTML += `</table>\n`;
     insideTable.innerHTML = HTML;
 }
 
-async function createPagination(totalpage, currentpage){
+async function createPagination(totalpage, currentpage) {
     let HTML = `\n<a id="pg_start" href="#"><<</a>\n`;
-        HTML += `<a id="pg_prev" href="#"><</a>\n`;
+    HTML += `<a id="pg_prev" href="#"><</a>\n`;
 
     for (let i = 1; i <= totalpage; i++) {
         if(i == currentpage){HTML +=`<a data-page="${i}" href="#" class="pg_active">${i}</a>`;}
-        else{HTML +=`<a href="#" class="page-link" data-page="${i}">${i}</a>`;}
+else{HTML +=`<a href="#" class="page-link" data-page="${i}">${i}</a>`;}
     }
     HTML += `<a id="pg_next" href="#">></a>\n`;
     HTML += `<a id="pg_end" href="#">>></a>\n`;
@@ -67,11 +84,11 @@ async function loadTable(sorting = globalSorting, filters = globalFiltering, req
             filterAge: filters[5]
         });
 
-        const res = await fetch(`api/students?${queryParams.toString()}`, {
+        const res = await fetch(`/api/students?${queryParams.toString()}`, {
             method: 'GET',
             headers: { 'Accept': 'application/json' }
         });
-        
+
         const response = await res.json();
         totalpages = Math.ceil(response.total / response.per_page);
         createTableHTML(response.data);
@@ -87,9 +104,9 @@ async function ogrenciEkle(ogrenci_ad, ogrenci_soyad, ogrenci_no, ogrenci_bolum,
     try {
         const res = await fetch(`/api/students`, {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json' 
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 studentName: ogrenci_ad,
@@ -99,7 +116,7 @@ async function ogrenciEkle(ogrenci_ad, ogrenci_soyad, ogrenci_no, ogrenci_bolum,
                 studentAge: ogrenci_yas
             })
         });
-        
+
         const serverData = await res.json();
 
         if(res.ok && serverData.status === 'success'){
@@ -121,7 +138,7 @@ async function ogrenciSil(deleteNum) {
             method: 'DELETE',
             headers: { 'Accept': 'application/json' }
         });
-        
+
         const serverData = await res.json();
 
         if(res.ok && serverData.status === 'success'){
@@ -158,7 +175,7 @@ async function ogrenciEditKaydet(editNum, index) {
     let editLastName = document.getElementById(`${index}_soyad_form`).value.trim();
     let editMaj = document.getElementById(`${index}_bolum_form`).value.trim();
     let editAge = document.getElementById(`${index}_yas_form`).value;
-    
+
     if(!editName) {editName = tempEditing[index][0];}
     if(!editLastName) {editLastName = tempEditing[index][1];}
     if(!editMaj) {editMaj = tempEditing[index][2];}
@@ -174,9 +191,9 @@ async function ogrenciEditKaydet(editNum, index) {
     try {
         const res = await fetch(`/api/students/${editNum}`, {
             method: 'PUT',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json' 
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 editName: editName,
@@ -185,7 +202,7 @@ async function ogrenciEditKaydet(editNum, index) {
                 editAge: editAge
             })
         });
-        
+
         const serverData = await res.json();
 
         if(res.ok && serverData.status === 'success'){
@@ -198,7 +215,7 @@ async function ogrenciEditKaydet(editNum, index) {
             document.getElementById(`${index}_bolum`).innerHTML = `${editMaj}`;
             document.getElementById(`${index}_yas`).innerHTML = `${editAge}`;
             document.getElementById(`${index}_edit_cancel`).outerHTML = `<td id="${index}_delete" class="rowedit">Sil</td>`;
-    
+
         } else {
             resultDiv.textContent = `${serverData.message}`;
             resultDiv.style.color = '#f44336';
@@ -219,25 +236,25 @@ async function ogrenciEditVazgec(editNum, index) {
     tempEditing[index] = 0;
 }
 
-//-- Start of execution --
+
 loadTable(globalSorting, globalFiltering, tablecount, 1);
 
 rowcountBtn.addEventListener('click', async (event) => {
     event.preventDefault();
     tablecount = document.getElementById('rowcount').value;
-    pagenum = 1; // Always reset to page 1 when count changes
+    pagenum = 1;
     loadTable(globalSorting, globalFiltering, tablecount, pagenum);
 });
 
 tabloForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    
+
     const ogrenci_ad = document.getElementById('OGRENCI-AD').value.trim();
     const ogrenci_soyad = document.getElementById('OGRENCI-SOYAD').value.trim();
     const ogrenci_no = document.getElementById('OGRENCI-NO').value;
     const ogrenci_bolum = document.getElementById('OGRENCI-BOLUM').value.trim();
     const ogrenci_yas = document.getElementById('OGRENCI-YAS').value;
-    
+
     if (/[^a-zçğıöşüÇĞİÖŞÜ ']/i.test(ogrenci_ad) || /[^a-zçğıöşüÇĞİÖŞÜ ']/i.test(ogrenci_soyad) || /[^a-zçğıöşüÇĞİÖŞÜ ']/i.test(ogrenci_bolum) || /[^0-9]/.test(ogrenci_yas) || /[^0-9]/.test(ogrenci_no)){
         fillAllError.textContent = "Değerleri formatına uygun giriniz.";
         fillAllError.style.color = '#f44336';
@@ -272,24 +289,24 @@ tabloyeri.addEventListener('click', async (event) => {
             globalSorting[1] = 'ASC';
             event.target.innerHTML = names[sortNum] + " ↑";
         }
-        
+
         globalSorting[0] = names[sortNum];
         loadTable(globalSorting, globalFiltering, tablecount, pagenum);
     }
     else if (event.target.id === 'filtreleBtn'){
         event.preventDefault();
-            
+
         const id_filter = document.getElementById('idfilter').value;
         const ad_filter = document.getElementById('adfilter').value.trim();
         const soyad_filter = document.getElementById('soyadfilter').value.trim();
         const no_filter = document.getElementById('nofilter').value;
         const bolum_filter = document.getElementById('bolumfilter').value.trim();
         const yas_filter = document.getElementById('yasfilter').value;
-        
+
         globalFiltering = [id_filter, ad_filter, soyad_filter, no_filter, bolum_filter, yas_filter];
         pagenum = 1;
         await loadTable(globalSorting, globalFiltering, tablecount, pagenum);
-     }
+    }
 });
 
 insideTable.addEventListener('click', async (event) => {
@@ -320,9 +337,9 @@ insideTable.addEventListener('click', async (event) => {
 
 pagination.addEventListener('click', async (event) => {
     event.preventDefault();
-    
+
     let clickedPage = event.target.getAttribute('data-page');
-    
+
     if      (clickedPage)                   pagenum = parseInt(clickedPage);
     else if (event.target.id == 'pg_start') pagenum = 1;
     else if (event.target.id == 'pg_end')   pagenum = totalpages;
@@ -330,4 +347,5 @@ pagination.addEventListener('click', async (event) => {
     else if (event.target.id == 'pg_prev')  pagenum = Math.max(pagenum - 1, 1);
 
     loadTable(globalSorting, globalFiltering, tablecount, pagenum);
+});
 });
