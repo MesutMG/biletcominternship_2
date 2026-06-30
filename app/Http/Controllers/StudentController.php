@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 
 class StudentController extends Controller
 {
-    public function index(Request $request)
+    public function tabloIstegi(Request $request)
     {
         $sortParam = $request->input('sortparam', 'ID');
         $sortDir = $request->input('sortdir', 'ASC');
@@ -26,7 +26,7 @@ class StudentController extends Controller
         return response()->json($students);
     }
 
-    public function store(Request $request)
+    public function ogrenciEkle(Request $request)
     {
         $validated = $request->validate([
             'studentName' => 'required|string',
@@ -47,7 +47,7 @@ class StudentController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Başarıyla eklendi.']);
     }
 
-    public function update(Request $request, $id)
+    public function ogrenciEdit(Request $request, $id)
     {
         $student = Student::where('NO', $id)->firstOrFail();
 
@@ -61,7 +61,7 @@ class StudentController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Başarıyla düzenlendi.']);
     }
 
-    public function destroy($id)
+    public function ogrenciSil($id)
     {
         $student = Student::where('NO', $id)->firstOrFail();
         $student->delete();

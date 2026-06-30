@@ -5,8 +5,6 @@ const insideTable = document.getElementById('insideTable');
 const tabloForm = document.getElementById('tabloForm');
 const pagination = document.getElementById('pagination');
 const sortingTable = document.getElementById('sorting-table');
-resultDiv.innerText = "aaa";
-resultDiv.style = "background-color: red;";
 
 const filtreleBtn = document.getElementById('submitfilter');
 const rowcountBtn = document.getElementById('rowcountBtn');
@@ -27,11 +25,11 @@ async function createTableHTML(data) {
         HTML += `<tr>
             <td id="${i}_edit" class="rowedit">Düzenle</td>
             <td id="${i}_id">${data[i].ID}</td>
-            <td id="${i}_ad">${data[i].NAME}</td>
-            <td id="${i}_soyad">${data[i].SURNAME}</td>
-            <td id="${i}_no">${data[i].NUM}</td>
-            <td id="${i}_bolum">${data[i].MAJOR}</td>
-            <td id="${i}_yas">${data[i].AGE}</td>
+            <td id="${i}_ad">${data[i].AD}</td>
+            <td id="${i}_soyad">${data[i].SOYAD}</td>
+            <td id="${i}_no">${data[i].NO}</td>
+            <td id="${i}_bolum">${data[i].BOLUM}</td>
+            <td id="${i}_yas">${data[i].YAS}</td>
             <td id="${i}_delete" class="rowedit">Sil</td>
         </tr>
         \n`;
@@ -69,15 +67,13 @@ async function loadTable(sorting = globalSorting, filters = globalFiltering, req
             filterAge: filters[5]
         });
 
-        const res = await fetch(`/api/students?${queryParams.toString()}`, {
+        const res = await fetch(`api/students?${queryParams.toString()}`, {
             method: 'GET',
             headers: { 'Accept': 'application/json' }
         });
         
         const response = await res.json();
-
         totalpages = Math.ceil(response.total / response.per_page);
-
         createTableHTML(response.data);
         createPagination(totalpages, pg);
 
@@ -263,7 +259,7 @@ tabloyeri.addEventListener('click', async (event) => {
             a[i].innerHTML = names[i];
         }
 
-        sortNum = parseInt(clickedBtn);
+        let sortNum = parseInt(clickedBtn);
         if(globalSorting[0] === names[clickedBtn]){
             if(globalSorting[1] === 'DESC'){
                 globalSorting[1] = 'ASC';

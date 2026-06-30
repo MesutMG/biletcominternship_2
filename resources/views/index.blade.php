@@ -6,123 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <title>ogrenci tablo</title>
 </head>
-<style>
-
-    *{
-    padding-block: 3px;
-    box-sizing: border-box;
-    user-select: none;
-    }
-
-    body{
-    margin-inline: 25%;
-    min-width: 600px;
-    }
-
-    table{
-    border-collapse: collapse;
-    width: 100%;
-    table-layout: fixed;
-    }
-
-    th{
-    color: #ffffff;
-    background-color: #54585d;
-    border: 1px solid #54585d;
-    padding: 8px;
-    }
-    .sortBtn{
-        cursor: default;
-    }
-    .sortBtn:hover{
-        background-color: #64686e;
-    }
-    .sortBtn:active{
-        background-color: #a3a3a3;
-    }
-
-    #insideTable{
-        padding-block: 0px;
-    }
-
-    /*------- FORM EDITING PART -------*/
-    #insideTable form {
-    margin: 0;
-    padding: 0;
-    display: block;
-    }
-    #insideTable form input {
-    width: 100%;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 4px; 
-    border: 1px solid #ccc;
-    border-radius: 2px;
-    font-family: inherit;
-    font-size: inherit;
-    background-color: #fff;
-    outline: none;
-    }
-    #insideTable form input:focus {
-    border-color: #54585d;
-    }
-    /*------- FORM EDITING PART -------*/
-
-    /*------- PAGINATION PART ------ */
-    .pagination{
-    margin-block: 10px;
-    text-align: center;
-    }
-    .pagination a {
-    color: black;
-    padding: 8px 16px;
-    text-decoration: none;
-    transition: background-color .3s;
-    display: inline-block;
-    }
-    .pagination a.pg_active {
-    background-color: dodgerblue;
-    color: white;
-    }
-    .pagination a:hover:not(.pg_active) {background-color: #ddd;}
-    /*------- PAGINATION PART ------ */
-
-    td{
-        border: 1px solid #54585d4e;
-        padding: 4px;
-    }
-    .rowedit{
-        text-align: center;
-        color: #ffffff;
-        background-color: #54585d;
-        border: 1px solid #54585d;
-        padding: 8px;
-        cursor: default;
-    }
-    .rowedit:hover{
-        background-color: #64686e;
-    }
-    .rowedit:active{
-        background-color: #a3a3a3;
-    }
-    .filter{
-        width: 100%;
-        padding: 6px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        outline: none;
-    }
-    .filter:focus{
-        border-color: #54585d;
-    }
-    
-    tr{
-        background-color: #ffffff;
-    }
-    tr.highlight{
-        background-color: #f9fafb;
-    }
-</style>
+<style></style>
 
 <body>
   
@@ -199,5 +83,6 @@
   <div id="fillAllError" style="margin: 10px;"></div>
   <div id="result" style="margin: 10px;"></div>
 
-  <script src="{{ asset('js/script.js') }}"></script>
+  @vite(['resources/css/app.css', 'resources/js/app.js'])
+  <script></script>
 </body>
