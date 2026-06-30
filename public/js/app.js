@@ -5,6 +5,8 @@ const insideTable = document.getElementById('insideTable');
 const tabloForm = document.getElementById('tabloForm');
 const pagination = document.getElementById('pagination');
 const sortingTable = document.getElementById('sorting-table');
+resultDiv.innerText = "aaa";
+resultDiv.style = "background-color: red;";
 
 const filtreleBtn = document.getElementById('submitfilter');
 const rowcountBtn = document.getElementById('rowcountBtn');

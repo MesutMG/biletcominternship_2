@@ -19,3 +19,7 @@ Route::get ('emp/{name?}', function ($name = 'Guest') {
 });
 
 Route::get('gfg', [GfGController::class, 'index']);
+
+Route::get('/', function () {
+    return view('index');
+});
