@@ -1,21 +1,20 @@
-import { createApp } from "vue";
-import PrimeVue from "primevue/config";
-import Aura from "@primeuix/themes/aura";
+import { createApp } from 'vue';
+import App from './App.vue';
+createApp(App).mount('#app');
 
-const vueApp = createApp({});
-vueApp.use(PrimeVue, {
+/*import PrimeVue from "primevue/config";
+import Aura from "@primeuix/themes/aura";*/
+/*vueApp.use(PrimeVue, {
     theme: {
         preset: Aura,
         options: {
             darkModeSelector: ".p-dark",
         }
     },
-});
+    license: ''
+});*/
 
-if (document.getElementById('vue-root')) {
-    vueApp.mount("#vue-root");
-}
-
+/*
 document.addEventListener('DOMContentLoaded', () => {
 const resultDiv = document.getElementById('result');
 const fillAllError = document.getElementById('fillAllError');
@@ -348,4 +347,4 @@ pagination.addEventListener('click', async (event) => {
 
     loadTable(globalSorting, globalFiltering, tablecount, pagenum);
 });
-});
+});*/
