@@ -1,3 +1,5 @@
+<script setup></script>
+
 <template>
-        VUEVUEVUE
+        <h1>VUE</h1>
 </template>
