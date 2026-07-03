@@ -5,10 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <title>ogrenci tablo</title>
+    <title>Excel</title>
 </head>
 <style></style>
 
 <body>
-  <div id="app"></div>
+    
+    <div id="app"></div>
+
+    <script></script>
+    
 </body>
+</html>
