@@ -1,32 +1,164 @@
 <style>
+*{
+padding-block: 3px;
+box-sizing: border-box;
+user-select: none;
+}
+
+body{
+margin-inline: 25%;
+min-width: 600px;
+}
+
+table{
+border-collapse: collapse;
+width: 100%;
+table-layout: fixed;
+}
+
+th{
+color: #ffffff;
+background-color: #54585d;
+border: 3px solid #54585d;
+padding: 8px;
+}
+
+.sortBtn{
+    cursor: default;
+    transition:ease 0.3s;
+}
+.sortBtn:hover{
+    background-color: #64686e;
+    border-color: transparent;
+}
+.sortBtn:active{
+    background-color: #a3a3a3;
+    border-style: groove;
+    border-color: #54585d;
+}
+
+.TABLOID{
+  margin: 0;
+  padding: 0;
+}
+
+#insideTable{
+    padding-block: 0px;
+}
+
+.tabloForm{
+    display:grid;
+    justify-content: center;
+}
+.form-group{
+    display: grid;
+    padding-bottom: 5px;
+}
+
+/*------- FORM EDITING PART -------*/
+#insideTable form {
+    margin: 0;
+    padding: 0;
+    display: block;
+}
+#insideTable form input {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 4px; 
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    font-family: inherit;
+    font-size: inherit;
+    background-color: #fff;
+    outline: none;
+}
+#insideTable form input:focus {
+    border-color: #54585d;
+}
+    /*------- FORM EDITING PART -------*/
+
+    /*------- PAGINATION PART ------ */
+.pagination{
+    margin-block: 10px;
+    text-align: center;
+}
+.pagination a {
+    color: black;
+    padding: 8px 16px;
+    text-decoration: none;
+    transition: background-color .3s;
+    display: inline-block;
+}
+.pagination a.pg_active {
+    background-color: dodgerblue;
+    color: white;
+}
+.pagination a:hover:not(.pg_active) {background-color: #ddd;}
+/*------- PAGINATION PART ------ */
+
+td{
+    border: 0.5px solid #54585d4e;
+    padding: 4px;
+}
+.rowedit{
+    text-align: center;
+    color: #ffffff;
+    background-color: #54585d;
+    padding: 8px;
+    cursor: default;
+    transition:ease 0.3s;
+}
+.rowedit:hover{
+    background-color: #64686e;
+}
+.rowedit:active{
+    background-color: #a3a3a3;
+}
+.filter{
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    outline: none;
+}
+.filter:focus{
+    border-color: #54585d;
+}
+    
+tr{
+    background-color: #ffffff;
+}
+tr.highlight{
+    background-color: #f9fafb;
+}
 </style>
 
 <template>
-  <div id="TABLOID" class="TABLOID">
-    
-    <table>
-        <tr id="sorting-table">
-            <td style="border: 0;"></td>
-            <th v-on:click="sortChange(0)" class="sortBtn">{{sortButtonsText[0]}}</th>
-            <th v-on:click="sortChange(1)" class="sortBtn">{{sortButtonsText[1]}}</th>
-            <th v-on:click="sortChange(2)" class="sortBtn">{{sortButtonsText[2]}}</th>
-            <th v-on:click="sortChange(3)" class="sortBtn">{{sortButtonsText[3]}}</th>
-            <th v-on:click="sortChange(4)" class="sortBtn">{{sortButtonsText[4]}}</th>
-            <th v-on:click="sortChange(5)" class="sortBtn">{{sortButtonsText[5]}}</th>
-            <td style="border: 0;"></td>
-        </tr>
-        <tr>
-            <td style="border: 0;"></td>
-            <td><input type="text" placeholder="Ara: ID" v-model="globalFiltering[0]" class="filter"></td>
-            <td><input type="text" placeholder="Ara: AD" v-model="globalFiltering[1]" class="filter"></td>
-            <td><input type="text" placeholder="Ara: SOYAD" v-model="globalFiltering[2]" class="filter"></td>
-            <td><input type="text" placeholder="Ara: NO" v-model="globalFiltering[3]" class="filter"></td>
-            <td><input type="text" placeholder="Ara: BOLUM" v-model="globalFiltering[4]" class="filter"></td>
-            <td><input type="text" placeholder="Ara: YAS" v-model="globalFiltering[5]" class="filter"></td>
-            <td style="border: 0;"><button v-on:click="loadTable()" class="filter">Search</button></td>
-        </tr>
-    </table>
+  <table>
+      <tr id="sorting-table">
+          <td style="border: 0;"></td>
+          <th v-on:click="sortChange(0)" class="sortBtn">{{sortButtonsText[0]}}</th>
+          <th v-on:click="sortChange(1)" class="sortBtn">{{sortButtonsText[1]}}</th>
+          <th v-on:click="sortChange(2)" class="sortBtn">{{sortButtonsText[2]}}</th>
+          <th v-on:click="sortChange(3)" class="sortBtn">{{sortButtonsText[3]}}</th>
+          <th v-on:click="sortChange(4)" class="sortBtn">{{sortButtonsText[4]}}</th>
+          <th v-on:click="sortChange(5)" class="sortBtn">{{sortButtonsText[5]}}</th>
+          <td style="border: 0;"></td>
+      </tr>
+      <tr>
+          <td style="border: 0;"></td>
+          <td><input type="text" placeholder="Ara: ID" v-model="globalFiltering[0]" class="filter"></td>
+          <td><input type="text" placeholder="Ara: AD" v-model="globalFiltering[1]" class="filter"></td>
+          <td><input type="text" placeholder="Ara: SOYAD" v-model="globalFiltering[2]" class="filter"></td>
+          <td><input type="text" placeholder="Ara: NO" v-model="globalFiltering[3]" class="filter"></td>
+          <td><input type="text" placeholder="Ara: BOLUM" v-model="globalFiltering[4]" class="filter"></td>
+          <td><input type="text" placeholder="Ara: YAS" v-model="globalFiltering[5]" class="filter"></td>
+          <td style="border: 0;"><button v-on:click="loadTable()" class="filter">Search</button></td>
+      </tr>
+  </table>
 
+  <div id="TABLOID" class="TABLOID">
     <table v-if="studentsData && studentsData.length">
       <tr v-for="(student, index) in studentsData" :key="student.NO">
         <template v-if="currentlyEditing == student.NO">
