@@ -4,36 +4,60 @@
         <thead>
         <tr>
           <th class="excel-corner">/</th>
-          <th v-for="(i, index) in ['A','B','C','D','E','F','G','H','I','J']" v-on:click="columnClicked(index+1)" :key="index" class="excel-header">
+          <th v-for="(i, index) in columns" v-on:click="columnClicked(index+2)" :key="index" class="excel-header">
             {{ i }}
+          </th>
+
+          <th v-on:click="addColumn()" class="excel-header">
+            +
           </th>
         </tr>
       </thead>
       
       <tbody>
-        <tr v-for="(i, index) in tableData" :key="index">
-          <td class="excel-row-number" v-on:click="rowClicked(index+1)">{{ index + 1 }}</td>
+        <tr v-for="(row_data, row_index) in tableData" :key="row_index">
+          <td class="excel-row-number" v-on:click="rowClicked(row_index+1)">{{ row_index + 1 }}</td>
 
-          <td v-for="(j, jndex) in ['C1','C2','C3','C4','C5','C6','C7','C8','C9','C10']" :key="jndex" 
-              :class="(selectedColumn === jndex+1 || selectedRow === index+1) ? 'highlighted-cell' : 'cell'">
+          <td v-for=" col_index in colcount" :key="col_index" 
+              :class="(selectedColumn === col_index+1 || selectedRow === row_index+1) ? 'highlighted-cell' : 'cell'">
             
             <input 
-                v-if="editingCell.row === jndex && editingCell.col === index"
+                v-if="editingCell.row === col_index && editingCell.col === row_index"
                 v-model="writing"
                 v-focus
-                @blur="saveCell(index, j)"
-                @keyup.enter="saveCell(index, j)"
+                @blur="saveCell(row_index, col_index)"
+                @keyup.enter="saveCell(row_index, col_index)"
                 class="cell-input"
             />
             
-            <div v-else @click="cellClicked(jndex, index)" class="cell-content">
-              {{ i[j] ? i[j] : '' }}
+            <div v-else @click="cellClicked(col_index, row_index, row_data['C' + String(col_index + 1)])" class="cell-content">
+              {{ row_data['C' + String(col_index + 1)] ? row_data['C' + String(col_index + 1)] : null }}
             </div>
 
           </td>
         </tr>
       </tbody>
+      <tfoot>
+        <th v-on:click="addRow()" class="excel-row-number">
+            +
+        </th>
+      </tfoot>
     </table>
+
+    <div class="sheetContainer">
+      <div 
+        v-for="i in totalpages" 
+        v-on:click="changePageTo(i)" 
+        :key="i" 
+        class="sheetSelect"
+        :class="{ 'active-sheet': i === currentPage }"
+      >
+        Page{{ i }}
+      </div>
+      <div v-on:click="addPage()" class="sheetSelect" style="margin-right: 20px;">+</div>
+      <div v-on:click="saveToJSON()" class="sheetSelect">Kaydet</div>
+    </div>
+
   </div>
 </template>
 
@@ -51,13 +75,29 @@ import { setBlockTracking } from 'vue';
       }
     },
 
+    computed: {
+      columns() {
+        const cols = [];
+        for (let i = 0; i < this.colcount; i++) {
+          let letter = '';
+          let temp = i;
+          while (temp >= 0) {
+            letter = String.fromCharCode((temp % 26) + 65) + letter;
+            temp = Math.floor(temp / 26) - 1;
+          }
+          cols.push(letter);
+        }
+        return cols;
+      }
+    },
+
     data() {
       return {
         sortButtons: ['id', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
         sortButtonsText: ['id ↓', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
         globalSorting: ['id', 'ASC'],
-        rowcount: 10,
         colcount: 10,
+        rowcount: 10,
         totalpages: 1,
         currentPage: 1,
         response: 2,
@@ -65,7 +105,6 @@ import { setBlockTracking } from 'vue';
         selectedRow: null,
         writing: null,
         tableData: [],
-
         editingCell: { row: null, col: null }
       };
     },
@@ -81,38 +120,48 @@ import { setBlockTracking } from 'vue';
 
         const response = await axios.get(`/api/table?${queryParams.toString()}`);
         this.response = response.data;
-        this.tableData = response.data;
+        
+        this.tableData = this.response.data;
+        this.rowcount = this.response.rowcount;
+        this.colcount = this.response.colcount;
+        this.totalpages = this.response.pagecount;
         
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     },
 
-    cellClicked(rowIndex, columnIndex){
-          this.writing = '';
-          this.editingCell = { row: rowIndex, col: columnIndex };
-          this.selectedColumn = null; 
-          this.selectedRow = null;
-      },
+    cellClicked(colIndex, rowIndex, currentValue) {
+      this.writing = currentValue || '';
+      this.editingCell = { row: colIndex, col: rowIndex };
+      this.selectedColumn = null; 
+      this.selectedRow = null;
+    },
 
-    async saveCell(rowIndex, colKey, pageNum = this.currentPage) {
-        if (this.editingCell.row === null) return;
-        this.editingCell = { row: null, col: null };
-        try {
-            const queryParams = new URLSearchParams({
-                rowindex: rowIndex,
-                column: colKey,
-                data: this.writing,
-                pagenum: pageNum
-            });
-            
-            await axios.put(`/api/table?${queryParams.toString()}`);
-            
-            this.tableData[rowIndex][colKey] = this.writing;
+    async saveCell(rowIndex, colIndex, pageNum = this.currentPage) {
+      if (this.editingCell.row === null) return;
+      
+      const colKey = 'C' + String(colIndex + 1);
 
-        } catch (error) {
-            console.error("Error saving cell:", error);
-        }
+      if (this.tableData[rowIndex]) {
+        this.tableData[rowIndex][colKey] = this.writing;
+      }
+
+      this.editingCell = { row: null, col: null };
+
+      try {
+        const queryParams = new URLSearchParams({
+          rowindex: rowIndex,
+          colindex: colIndex,
+          data: this.writing,
+          pagenum: pageNum,
+        });
+        
+        await axios.put(`/api/table?${queryParams.toString()}`);
+
+      } catch (error) {
+        console.error("Error saving cell:", error);
+      }
     },
 
     columnClicked(columnIndex){
@@ -123,6 +172,63 @@ import { setBlockTracking } from 'vue';
     rowClicked(rowIndex){
         if(this.selectedRow == rowIndex) { this.selectedRow = null; }
         else                             { this.selectedRow = rowIndex; this.selectedColumn = null;}
+    },
+
+    async addColumn(pageNum = this.currentPage){
+        this.colcount++;
+        await axios.post('/api/table/add-column', { pagenum: pageNum });
+    },
+
+    async addRow(pageNum = this.currentPage) {
+      try {
+        await axios.post('/api/table/add-row', { pagenum: pageNum });
+
+        const newRow = {};
+        for (let i = 1; i <= this.colcount; i++) {
+          newRow['C' + i] = '';
+        }
+
+        this.tableData.push(newRow);
+
+        this.rowcount++;
+
+      } catch (error) {
+        console.error("Error adding row:", error);
+      }
+    },
+
+    async addPage(){
+      this.totalpages++;
+      await axios.post('/api/table/add-page', { pagenum: this.totalpages });
+      this.currentPage = this.totalpages;
+      this.createTableHTML();
+    },
+
+    async changePageTo(newPageNum){
+      this.currentPage = newPageNum;
+      this.createTableHTML();
+    },
+
+    range(start, end, step = 1) {
+      let result = [];
+      for (let a = start; a < end; a += step) {
+          result.push(a);
+      }
+    return result;
+    },
+
+    saveToJSON() {
+      const jsonString = JSON.stringify(this.tableData, null, 2);
+      
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const link = document.createElement('a');
+      
+      link.href = URL.createObjectURL(blob);
+      link.download = `sheet_${this.currentPage}_data.json`;
+      link.click();
+      
+      //clean up memory URL
+      URL.revokeObjectURL(link.href);
     },
   },
   
@@ -143,10 +249,10 @@ html, body {
 }
 
 .excel-container {
-
   height: 100vh;
   overflow: auto;
   box-sizing: border-box;
+  padding-bottom: 1%;
 }
 
 table {
@@ -233,6 +339,35 @@ th, td {
 
 .highlighted-cell:hover {
   outline: 1px solid #424242;
+}
+
+.sheetContainer {
+  position: fixed;
+  bottom: -30px;
+  right: 10px;
+  z-index: 9;
+  display: flex;
+  flex-direction: row;
+  gap: 1px;
+  transition: 0.3s ease;
+}
+
+.sheetContainer:hover {
+  bottom: 10px;
+}
+
+.sheetSelect {
+  background-color: #f3f3f3;
+  border: 1px solid #292929;
+  padding: 5px;
+  font-size: 36px;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.active-sheet {
+  background-color: #f7deb1;        
+  font-weight: bold;
 }
 
 </style>
