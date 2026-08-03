@@ -33,7 +33,6 @@ class Controller
             $this->tables[] = $model;
         }
 
-        // Fallback: If no sheet tables exist yet, initialize sheet1
         if (empty($this->tables)) {
             $model = new ExcelTable();
             $model->setTable('sheet1');
