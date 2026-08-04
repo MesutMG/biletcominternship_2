@@ -109,6 +109,43 @@ class Controller
         ]);
     }
 
+    public function deleteColumn(Request $request) {
+        $request->validate([
+            'colindex' => 'required|numeric',
+            'pagenum'  => 'required|numeric'
+        ]);
+
+        $colIndex = $request->input('colindex');
+        $pageNum = (int) $request->input('pagenum', 1);
+
+        $model = $this->getSheet($pageNum);
+        if (!$model) {
+            return response()->json(['status' => 'error', 'message' => 'Sheet not found'], 404);
+        }
+
+        $tableName = $model->getTable();
+        $cols = $this->getNumericColumns($tableName);
+        $totalCols = count($cols);
+
+        if (!in_array((string)$colIndex,$cols, true)) {
+            return response()->json(['status' => 'error', 'message' => 'Column does not exist'], 400);
+        }
+
+        DB::statement("ALTER TABLE `{$tableName}` DROP COLUMN `{$colIndex}`");
+
+        for ($i = $colIndex + 1; $i < $totalCols; $i++) {
+            $oldName = (string)$i;
+            $newName = (string) ($i - 1);
+
+            DB::statement("ALTER TABLE `{$tableName}` RENAME COLUMN `{$oldName}` TO `{$newName}`");
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => "Column {$colIndex} deleted and higher columns shifted."
+        ]);
+    }
+
     public function addRow(Request $request) {
         $pageNum = (int) $request->input('pagenum', 1);
         $model = $this->getSheet($pageNum);

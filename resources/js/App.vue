@@ -19,6 +19,7 @@
     class="custom-context-menu"
     :style="{ top: contextMenuCol.y + 'px', left: contextMenuCol.x + 'px' }"
   >
+    <div class="menu-item" @click="deleteColumn(targetCol)">Delete</div>
     <div class="menu-item" @click="handleAction('Empty')">Empty</div>
   </div>
 
@@ -37,7 +38,7 @@
         <thead>
         <tr>
           <th class="excel-corner">/</th>
-          <th v-for="(i, index) in columns" v-on:click="columnClicked(index)" :key="index" class="excel-header" @contextmenu="openContextMenuCol">
+          <th v-for="(i, index) in columns" v-on:click="columnClicked(index)" :key="index" class="excel-header" @contextmenu="openContextMenuCol($event,index)">
             {{ i }}
           </th>
 
@@ -147,6 +148,7 @@ import { setBlockTracking } from 'vue';
           x: 0,
           y: 0
         },
+        targetCol: null,
         sortButtons: ['id', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
         sortButtonsText: ['id ↓', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
         globalSorting: ['id', 'ASC'],
@@ -235,6 +237,23 @@ import { setBlockTracking } from 'vue';
         await axios.post('/api/table/add-column', { pagenum: pageNum });
     },
 
+    async deleteColumn(colIndex, pageNum = this.currentPage){
+      if (colIndex === null || colIndex === undefined) return;
+
+      this.colcount--;
+      try {
+        
+        await axios.post('/api/table/delete-column', { colindex: colIndex, pagenum: pageNum });
+        
+        this.targetColIndex = null;
+        this.closeContextMenuCol();
+        
+        await this.createTableHTML();
+      } catch (error) {
+        console.error("Error deleting column:", error);
+      }
+    },
+
     async addRow(pageNum = this.currentPage) {
       try {
         await axios.post('/api/table/add-row', { pagenum: pageNum });
@@ -300,9 +319,10 @@ import { setBlockTracking } from 'vue';
       this.contextMenuCell.visible = false;
     },
 
-    openContextMenuCol(event) {
+    openContextMenuCol(event, index) {
       this.closeContextMenuCell();
       this.closeContextMenuRow();
+      this.targetCol = index;
       this.contextMenuCol.x = event.clientX;
       this.contextMenuCol.y = event.clientY;
       this.contextMenuCol.visible = true;

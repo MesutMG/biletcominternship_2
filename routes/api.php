@@ -8,3 +8,4 @@ Route::put('/table', [Controller::class, 'cellEdit']);
 Route::post('/table/add-column', [Controller::class, 'addColumn']);
 Route::post('/table/add-row', [Controller::class, 'addRow']);
 Route::post('/table/add-page', [Controller::class, 'addPage']);
+Route::post('/table/delete-column', [Controller::class, 'deleteColumn']);
