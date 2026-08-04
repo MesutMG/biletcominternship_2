@@ -37,7 +37,7 @@
         <thead>
         <tr>
           <th class="excel-corner">/</th>
-          <th v-for="(i, index) in columns" v-on:click="columnClicked(index+2)" :key="index" class="excel-header" @contextmenu="openContextMenuCol">
+          <th v-for="(i, index) in columns" v-on:click="columnClicked(index)" :key="index" class="excel-header" @contextmenu="openContextMenuCol">
             {{ i }}
           </th>
 
@@ -49,12 +49,16 @@
       
       <tbody>
         <tr v-for="(row_data, row_index) in tableData" :key="row_index">
-          <td class="excel-row-number" v-on:click="rowClicked(row_index+1)" @contextmenu="openContextMenuRow">{{ row_index + 1 }}</td>
+          <td class="excel-row-number" v-on:click="rowClicked(row_index)" @contextmenu="openContextMenuRow">{{ row_index + 1 }}</td>
 
-          <td v-for=" col_index in colcount" :key="col_index" 
-              :class="(selectedColumn === col_index+1 || selectedRow === row_index+1) ? 'highlighted-cell' : 'cell'"
-              @click="cellClicked(col_index, row_index, row_data['C' + String(col_index + 1)])"
-              @contextmenu="openContextMenuCell">
+          <td v-for="(n, col_index) in colcount" :key="col_index" 
+            :class="[
+              (selectedColumn === col_index || selectedRow === row_index) ? 'highlighted-cell' : 'cell',
+              { 'active-cell': editingCell.row === col_index && editingCell.col === row_index }
+            ]"
+            @click="cellClicked(col_index, row_index)"
+            @contextmenu="openContextMenuCell"
+          >
             
             <input 
                 v-if="editingCell.row === col_index && editingCell.col === row_index"
@@ -66,9 +70,8 @@
             />
             
             <div v-else class="cell-content">
-              {{ row_data['C' + String(col_index + 1)] ? row_data['C' + String(col_index + 1)] : null }}
+              {{ row_data[col_index] ? row_data[col_index] : '' }}
             </div>
-
           </td>
         </tr>
       </tbody>
@@ -90,7 +93,7 @@
         Page{{ i }}
       </div>
       <div v-on:click="addPage()" class="sheetSelect" style="margin-right: 20px;">+</div>
-      <div v-on:click="saveToJSON()" class="sheetSelect">Kaydet</div>
+      <div v-on:click="saveToJSON()" class="sheetSelect">Indir</div>
     </div>
 
   </div>
@@ -182,8 +185,8 @@ import { setBlockTracking } from 'vue';
       }
     },
 
-    cellClicked(colIndex, rowIndex, currentValue) {
-      this.writing = currentValue || '';
+    cellClicked(colIndex, rowIndex) {
+      this.writing = this.tableData[rowIndex][colIndex];
       this.editingCell = { row: colIndex, col: rowIndex };
       this.selectedColumn = null; 
       this.selectedRow = null;
@@ -192,11 +195,13 @@ import { setBlockTracking } from 'vue';
     async saveCell(rowIndex, colIndex, pageNum = this.currentPage) {
       if (this.editingCell.row === null || this.editingCell.col === null) { return };
       
-      const colKey = 'C' + String(colIndex);
+      console.log(rowIndex, colIndex, this.tableData[rowIndex][colIndex], this.writing, pageNum);
 
-      if (this.tableData[rowIndex]) {
-        this.tableData[rowIndex][colKey] = this.writing;
-      }
+      const newValue = this.writing ? this.writing : '';
+      this.tableData[rowIndex][colIndex] = newValue;
+
+      this.editingCell = { row: null, col: null };
+      this.writing = this.writing ? this.writing : '';
 
       this.editingCell = { row: null, col: null };
 
@@ -217,7 +222,7 @@ import { setBlockTracking } from 'vue';
 
     columnClicked(columnIndex){
         if(this.selectedColumn == columnIndex) { this.selectedColumn = null; }
-        else                                  { this.selectedColumn = columnIndex; this.selectedRow = null;}
+        else                                   { this.selectedColumn = columnIndex; this.selectedRow = null;}
     },
 
     rowClicked(rowIndex){
@@ -319,7 +324,7 @@ import { setBlockTracking } from 'vue';
       this.contextMenuRow.visible = false;
     },
 
-    handleAction(action) { /* ------------------------------------------------------------------------*/
+    handleAction(action) { /* ------------------------------- handle methods ---------------------------------*/
       console.log(`Action clicked: ${action}`);
       this.closeContextMenuCell();
       this.closeContextMenuCol();
@@ -360,7 +365,7 @@ html, body {
   height: 100vh;
   overflow: auto;
   box-sizing: border-box;
-  padding-bottom: 1%;
+  padding-bottom: 40px;
 }
 
 table {
@@ -442,7 +447,21 @@ th, td {
 }
 
 .cell:hover {
-  outline: 1px solid #424242;
+  outline: 1px solid #a6a6a6;
+}
+
+.active-cell {
+  outline: 2px solid #424242;
+  outline-offset: -2px;
+  position: relative;
+  z-index: 9;
+}
+
+.active-cell:hover {
+  outline: 2px solid #424242;
+  outline-offset: -2px;
+  position: relative;
+  z-index: 9;
 }
 
 .highlighted-cell{
@@ -455,17 +474,13 @@ th, td {
 
 .sheetContainer {
   position: fixed;
-  bottom: -30px;
+  bottom: 10px;
   right: 10px;
   z-index: 9;
   display: flex;
   flex-direction: row;
   gap: 1px;
   transition: 0.3s ease;
-}
-
-.sheetContainer:hover {
-  bottom: 10px;
 }
 
 .sheetSelect {
