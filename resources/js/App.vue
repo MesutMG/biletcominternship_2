@@ -1,10 +1,43 @@
 <template>
+<div @contextmenu.prevent>
+
+  <!-- --------------------------- CONTEXT MENU ------------------------------ -->
+  <div 
+    v-if="contextMenuCell.visible"
+    class="custom-context-menu"
+    :style="{ top: contextMenuCell.y + 'px', left: contextMenuCell.x + 'px' }"
+  >
+    <div class="menu-item" @click="handleAction('Copy')">Copy</div>
+    <div class="menu-item" @click="handleAction('Cut')">Cut</div>
+    <div class="menu-item" @click="handleAction('Paste')">Paste</div>
+    <div class="menu-item" @click="handleAction('Mark')">Mark</div>
+    <div class="menu-item" @click="handleAction('Delete')">Delete</div>
+  </div>
+
+  <div 
+    v-if="contextMenuCol.visible"
+    class="custom-context-menu"
+    :style="{ top: contextMenuCol.y + 'px', left: contextMenuCol.x + 'px' }"
+  >
+    <div class="menu-item" @click="handleAction('Empty')">Empty</div>
+  </div>
+
+  <div 
+    v-if="contextMenuRow.visible"
+    class="custom-context-menu"
+    :style="{ top: contextMenuRow.y + 'px', left: contextMenuRow.x + 'px' }"
+  >
+    <div class="menu-item" @click="handleAction('Empty')">Empty</div>
+  </div>
+
+  <!-- --------------------------- CONTEXT MENU ------------------------------ -->
+
   <div class="excel-container">
     <table>
         <thead>
         <tr>
           <th class="excel-corner">/</th>
-          <th v-for="(i, index) in columns" v-on:click="columnClicked(index+2)" :key="index" class="excel-header">
+          <th v-for="(i, index) in columns" v-on:click="columnClicked(index+2)" :key="index" class="excel-header" @contextmenu="openContextMenuCol">
             {{ i }}
           </th>
 
@@ -16,7 +49,7 @@
       
       <tbody>
         <tr v-for="(row_data, row_index) in tableData" :key="row_index">
-          <td class="excel-row-number" v-on:click="rowClicked(row_index+1)">{{ row_index + 1 }}</td>
+          <td class="excel-row-number" v-on:click="rowClicked(row_index+1)" @contextmenu="openContextMenuRow">{{ row_index + 1 }}</td>
 
           <td v-for=" col_index in colcount" :key="col_index" 
               :class="(selectedColumn === col_index+1 || selectedRow === row_index+1) ? 'highlighted-cell' : 'cell'">
@@ -30,7 +63,7 @@
                 class="cell-input"
             />
             
-            <div v-else @click="cellClicked(col_index, row_index, row_data['C' + String(col_index + 1)])" class="cell-content">
+            <div v-else @click="cellClicked(col_index, row_index, row_data['C' + String(col_index + 1)])" class="cell-content" @contextmenu="openContextMenuCell">
               {{ row_data['C' + String(col_index + 1)] ? row_data['C' + String(col_index + 1)] : null }}
             </div>
 
@@ -59,6 +92,7 @@
     </div>
 
   </div>
+</div>
 </template>
 
 <script setup>import axios from 'axios';</script>
@@ -93,6 +127,21 @@ import { setBlockTracking } from 'vue';
 
     data() {
       return {
+        contextMenuCell: {
+          visible: false,
+          x: 0,
+          y: 0
+        },
+        contextMenuCol: {
+          visible: false,
+          x: 0,
+          y: 0
+        },
+        contextMenuRow: {
+          visible: false,
+          x: 0,
+          y: 0
+        },
         sortButtons: ['id', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
         sortButtonsText: ['id ↓', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
         globalSorting: ['id', 'ASC'],
@@ -230,11 +279,68 @@ import { setBlockTracking } from 'vue';
       //clean up memory URL
       URL.revokeObjectURL(link.href);
     },
+
+    /* ------------------------------------ CONTEXT MENU ------------------------------------ */ 
+    openContextMenuCell(event) {
+      this.closeContextMenuCol();
+      this.closeContextMenuRow();
+      this.contextMenuCell.x = event.clientX;
+      this.contextMenuCell.y = event.clientY;
+      this.contextMenuCell.visible = true;
+    },
+
+    closeContextMenuCell() {
+      this.contextMenuCell.visible = false;
+    },
+
+    openContextMenuCol(event) {
+      this.closeContextMenuCell();
+      this.closeContextMenuRow();
+      this.contextMenuCol.x = event.clientX;
+      this.contextMenuCol.y = event.clientY;
+      this.contextMenuCol.visible = true;
+    },
+
+    closeContextMenuCol() {
+      this.contextMenuCol.visible = false;
+    },
+
+    openContextMenuRow(event) {
+      this.closeContextMenuCell();
+      this.closeContextMenuCol();
+      this.contextMenuRow.x = event.clientX;
+      this.contextMenuRow.y = event.clientY;
+      this.contextMenuRow.visible = true;
+    },
+
+    closeContextMenuRow() {
+      this.contextMenuRow.visible = false;
+    },
+
+    handleAction(action) { /* ------------------------------------------------------------------------*/
+      console.log(`Action clicked: ${action}`);
+      this.closeContextMenuCell();
+      this.closeContextMenuCol();
+    },
+    /* ------------------------------------ CONTEXT MENU ------------------------------------ */
   },
   
   mounted() {
     this.createTableHTML();
+    window.addEventListener('click', this.closeContextMenuCell);
+    window.addEventListener('click', this.closeContextMenuCol);
+    window.addEventListener('click', this.closeContextMenuRow);
+  },
+
+  unmounted() {
+    window.removeEventListener('click', this.closeContextMenuCell);
+    window.removeEventListener('click', this.closeContextMenuCol);
+    window.removeEventListener('click', this.closeContextMenuRow);
   }
+
+
+
+
 }
 </script>
 
@@ -368,6 +474,28 @@ th, td {
 .active-sheet {
   background-color: #f7deb1;        
   font-weight: bold;
+}
+
+.custom-context-menu {
+  position: fixed;
+  z-index: 1000;
+  background-color: #ffffff;
+  border: 1px solid #ccc;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  padding: 4px 0;
+  min-width: 140px;
+}
+
+.menu-item {
+  padding: 8px 16px;
+  font-size: 16px;
+  cursor: pointer;
+  color: #333;
+}
+
+.menu-item:hover {
+  background-color: #f0f0f0;
 }
 
 </style>
