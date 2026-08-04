@@ -52,7 +52,9 @@
           <td class="excel-row-number" v-on:click="rowClicked(row_index+1)" @contextmenu="openContextMenuRow">{{ row_index + 1 }}</td>
 
           <td v-for=" col_index in colcount" :key="col_index" 
-              :class="(selectedColumn === col_index+1 || selectedRow === row_index+1) ? 'highlighted-cell' : 'cell'">
+              :class="(selectedColumn === col_index+1 || selectedRow === row_index+1) ? 'highlighted-cell' : 'cell'"
+              @click="cellClicked(col_index, row_index, row_data['C' + String(col_index + 1)])"
+              @contextmenu="openContextMenuCell">
             
             <input 
                 v-if="editingCell.row === col_index && editingCell.col === row_index"
@@ -63,7 +65,7 @@
                 class="cell-input"
             />
             
-            <div v-else @click="cellClicked(col_index, row_index, row_data['C' + String(col_index + 1)])" class="cell-content" @contextmenu="openContextMenuCell">
+            <div v-else class="cell-content">
               {{ row_data['C' + String(col_index + 1)] ? row_data['C' + String(col_index + 1)] : null }}
             </div>
 
@@ -188,9 +190,9 @@ import { setBlockTracking } from 'vue';
     },
 
     async saveCell(rowIndex, colIndex, pageNum = this.currentPage) {
-      if (this.editingCell.row === null) return;
+      if (this.editingCell.row === null || this.editingCell.col === null) { return };
       
-      const colKey = 'C' + String(colIndex + 1);
+      const colKey = 'C' + String(colIndex);
 
       if (this.tableData[rowIndex]) {
         this.tableData[rowIndex][colKey] = this.writing;
