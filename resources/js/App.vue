@@ -28,6 +28,7 @@
     class="custom-context-menu"
     :style="{ top: contextMenuRow.y + 'px', left: contextMenuRow.x + 'px' }"
   >
+    <div class="menu-item" @click="deleteRow(targetRow)">Delete</div>
     <div class="menu-item" @click="handleAction('Empty')">Empty</div>
   </div>
 
@@ -50,7 +51,7 @@
       
       <tbody>
         <tr v-for="(row_data, row_index) in tableData" :key="row_index">
-          <td class="excel-row-number" v-on:click="rowClicked(row_index)" @contextmenu="openContextMenuRow">{{ row_index + 1 }}</td>
+          <td class="excel-row-number" v-on:click="rowClicked(row_index)" @contextmenu="openContextMenuRow($event, row_index)">{{ row_index + 1 }}</td>
 
           <td v-for="(n, col_index) in colcount" :key="col_index" 
             :class="[
@@ -149,6 +150,7 @@ import { setBlockTracking } from 'vue';
           y: 0
         },
         targetCol: null,
+        targetRow: null,
         sortButtons: ['id', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
         sortButtonsText: ['id ↓', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
         globalSorting: ['id', 'ASC'],
@@ -245,7 +247,7 @@ import { setBlockTracking } from 'vue';
         
         await axios.post('/api/table/delete-column', { colindex: colIndex, pagenum: pageNum });
         
-        this.targetColIndex = null;
+        this.targetCol = null;
         this.closeContextMenuCol();
         
         await this.createTableHTML();
@@ -269,6 +271,22 @@ import { setBlockTracking } from 'vue';
 
       } catch (error) {
         console.error("Error adding row:", error);
+      }
+    },
+
+    async deleteRow(rowIndex, pageNum = this.currentPage){
+      if (rowIndex === null || rowIndex === undefined) return;
+
+      this.rowcount--;
+      try {
+        await axios.post('/api/table/delete-row', { rowindex: rowIndex, pagenum: pageNum });
+        
+        this.targetRow = null;
+        this.closeContextMenuCol();
+        
+        await this.createTableHTML();
+      } catch (error) {
+        console.error("Error deleting column:", error);
       }
     },
 
@@ -332,9 +350,10 @@ import { setBlockTracking } from 'vue';
       this.contextMenuCol.visible = false;
     },
 
-    openContextMenuRow(event) {
+    openContextMenuRow(event, index) {
       this.closeContextMenuCell();
       this.closeContextMenuCol();
+      this.targetRow = index;
       this.contextMenuRow.x = event.clientX;
       this.contextMenuRow.y = event.clientY;
       this.contextMenuRow.visible = true;

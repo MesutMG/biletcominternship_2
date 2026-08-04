@@ -37,9 +37,13 @@ class Controller
         return $this->tables[$pageNum - 1] ?? null;
     }
 
-    private function getNumericColumns(string $tableName) {
+    private function getColCount(string $tableName) {
         $columns = Schema::getColumnListing($tableName);
         return array_values(array_filter($columns, fn($col) => is_numeric($col)));
+    }
+
+    private function getRowCount(string $tableName) {
+        return DB::table($tableName)->count();
     }
 
     public function tabloIstegi(Request $request) {
@@ -57,7 +61,7 @@ class Controller
         return response()->json([
             'data'      => $data,
             'rowcount'  => $data->count(),
-            'colcount'  => count($this->getNumericColumns($model->getTable())),
+            'colcount'  => count($this->getColCount($model->getTable())),
             'pagecount' => count($this->tables)
         ]);
     }
@@ -97,7 +101,7 @@ class Controller
         $tableName = $model->getTable();
 
         //columns start at 0, counting them gives the index for the next column
-        $newColIndex = count($this->getNumericColumns($tableName)); 
+        $newColIndex = count($this->getColCount($tableName)); 
 
         Schema::table($tableName, function (Blueprint $table) use ($newColIndex) {
             $table->string((string) $newColIndex)->nullable();
@@ -124,7 +128,7 @@ class Controller
         }
 
         $tableName = $model->getTable();
-        $cols = $this->getNumericColumns($tableName);
+        $cols = $this->getColCount($tableName);
         $totalCols = count($cols);
 
         if (!in_array((string)$colIndex,$cols, true)) {
@@ -154,7 +158,7 @@ class Controller
             return response()->json(['status' => 'error', 'message' => 'Sheet not found'], 404);
         }
 
-        $cols = $this->getNumericColumns($model->getTable());
+        $cols = $this->getColCount($model->getTable());
         $newRowData = array_fill_keys($cols, null); 
 
         $model->newQuery()->create($newRowData);
@@ -162,6 +166,33 @@ class Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Added row successfully.'
+        ]);
+    }
+
+    public function deleteRow(Request $request) {
+        $request->validate([
+            'rowindex' => 'required|numeric',
+            'pagenum'  => 'required|numeric'
+        ]);
+
+        $rowIndex = (int) $request->input('rowindex');
+        $pageNum  = (int) $request->input('pagenum', 1);
+        
+        $model = $this->getSheet($pageNum);
+        if (!$model) {
+            return response()->json(['status' => 'error', 'message' => 'Sheet not found'], 404);
+        }
+
+        $tableName = $model->getTable();
+
+        //adjust + 1 since rowindex is 0 based on frontend
+        $targetId = $rowIndex + 1; 
+
+        DB::table($tableName)->where('id', $targetId)->delete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => "Row {$targetId} deleted successfully."
         ]);
     }
     
@@ -175,7 +206,7 @@ class Controller
 
         DB::statement("CREATE TABLE {$newTableName} LIKE sheet0");
 
-        $cols = $this->getNumericColumns($newTableName);
+        $cols = $this->getColCount($newTableName);
         $newRowData = array_fill_keys($cols, null);
         
         //generares 10 empty rows
