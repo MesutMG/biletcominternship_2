@@ -362,12 +362,14 @@ html, body {
 }
 
 table {
-  width: 200vh;
   border-collapse: collapse;
   table-layout: fixed;
 }
 
 th, td {
+  width: 100px;
+  max-width: 100px;
+  overflow:hidden;
   border: 1px solid #d4d4d4; 
   padding: 0 3px;
   height: 24px;
@@ -385,6 +387,9 @@ th, td {
 }
 
 .excel-header {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
   background-color: #f3f3f3;
   color: #333;
   font-weight: normal;
@@ -408,23 +413,23 @@ th, td {
 }
 
 .cell{
-    text-align: left;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: clip;
-    background-color: #ffffff;
+  min-width: 100px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  background-color: #ffffff;
 }
 
 .cell-content {
   font-size: 20px;
-  width: 100%;
-  height: 100%;
   min-height: 24px;
 }
 
 .cell-input {
   width: 100%;
   height: 100%;
+  box-sizing: border-box;
   border: none;
   outline: transparent;
   padding: 0;
@@ -432,7 +437,6 @@ th, td {
   font-size: 18px;
   font-family: inherit;
   background-color: white;
-  box-sizing: border-box;
 }
 
 .cell:hover {

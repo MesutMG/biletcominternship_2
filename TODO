@@ -1,5 +1,10 @@
-context menu
+###implement context menu methods
+###fix column api for C1-C9 columns (problem: can not empty the cells)
+
 removing columns rows
-fix resizing on columns
 main menu: excel files which have their own sheets
 download button downloads proper excel file with whole sheets
+
+DONE
+implement context menu
+fix resizing on columns
