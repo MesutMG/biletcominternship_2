@@ -1,9 +1,9 @@
 ###implement context menu methods
 
-main menu: excel files which have their own sheets
 download button downloads proper excel file with whole sheets
 
 DONE
 implement context menu
 fix resizing on columns
 fix column api for C1-C9 columns (problem: can not empty the cells)
+main menu: excel files which have their own sheets

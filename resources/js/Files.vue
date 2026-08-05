@@ -25,46 +25,28 @@
     <div class="files-container">
       <div class="section-header">
         <span class="section-title">Recent Workbooks</span>
-        <button class="btn btn-create">+ New Sheet</button>
+        <div class="create-file-group">
+          <input 
+            v-model="fileNameInput" 
+            placeholder="File name..." 
+            class="file-name-input"
+            @keyup.enter="createFile()"
+          />
+          <button class="btn btn-create" v-on:click="createFile()">+ New File</button>
+        </div>
       </div>
 
       <ul class="file-list">
-        <!-- Sample File Row 1 -->
-        <li class="file-item">
+        
+        <li v-for="(file, index) in files" class="file-item">
           <div class="file-icon">📊</div>
           <div class="file-details">
-            <span class="file-name">File1</span>
+            <span class="file-name">{{ file.name }}</span>
           </div>
           <div class="file-actions">
-            <button class="action-btn open-btn">Open</button>
-            <button class="action-btn download-btn">Download</button>
-            <button class="action-btn delete-btn">Delete</button>
-          </div>
-        </li>
-
-        <!-- Sample File Row 2 -->
-        <li class="file-item">
-          <div class="file-icon">📊</div>
-          <div class="file-details">
-            <span class="file-name">File2</span>
-          </div>
-          <div class="file-actions">
-            <button class="action-btn open-btn">Open</button>
-            <button class="action-btn download-btn">Download</button>
-            <button class="action-btn delete-btn">Delete</button>
-          </div>
-        </li>
-
-        <!-- Sample File Row 3 -->
-        <li class="file-item">
-          <div class="file-icon">📊</div>
-          <div class="file-details">
-            <span class="file-name">File3</span>
-          </div>
-          <div class="file-actions">
-            <button class="action-btn open-btn">Open</button>
-            <button class="action-btn download-btn">Download</button>
-            <button class="action-btn delete-btn">Delete</button>
+            <button class="action-btn open-btn" v-on:click="fileOpen(file.name)">Open</button>
+            <button class="action-btn download-btn" v-on:click="fileDownload()">Download</button>
+            <button class="action-btn delete-btn" v-on:click="fileDelete(file.name)">Delete</button>
           </div>
         </li>
       </ul>
@@ -82,6 +64,7 @@ export default {
   data() {
     return {
       files: [],
+      activeSheetData: null,
       themeColor: 'green',
 
       theme: {
@@ -102,7 +85,10 @@ export default {
         deleteText: '#a80000',
         deleteHoverBg: '#fde8e8',
         deleteHoverBorder: '#a80000'
-      }
+      },
+
+      response: null,
+      fileNameInput: null,
 
     };
   },
@@ -146,7 +132,75 @@ export default {
             this.theme.primaryHover = '#0e6e39';
             this.theme.primaryActive = '#0c5e30';
         } 
-    }
+    },
+
+    async getFiles(){
+      try {
+        const response = await axios.post(`/api/files`);
+        this.response = response.data;
+        this.files = response.data.files;
+
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    },
+
+    async createFile() {
+      let baseName = this.fileNameInput && this.fileNameInput.trim() ? this.fileNameInput.trim() : 'new_file';
+
+      let targetName = baseName + '.xlsx';
+      let counter = 1;
+
+      while (this.files.some(file => file.name === targetName)) {
+        targetName = `${baseName}(${counter}).xlsx`;
+        counter++;
+      }
+
+      try {
+        await axios.post('/api/files/create', { filename: targetName });
+        this.fileNameInput = '';
+        this.getFiles();
+      } catch (error) {
+        console.error("Error creating file:", error);
+      }
+    },
+
+    async fileOpen(fileName){
+      try{
+        console.log("file open");
+        const response = await axios.post('/api/table/get-page', { filename: fileName, pagenum: 1});
+
+        //saving to local storage so the table page can see it
+        localStorage.setItem('activeFileName', fileName);
+        localStorage.setItem('activeSheetData', JSON.stringify(response.data));
+        window.location.href = '/table';
+
+      } catch (error) {
+        console.error("Error creating file:", error);
+      }
+    },
+
+    async fileDownload(){
+      console.log("file download");
+    },  
+
+    async fileDelete(filename){
+      try {
+        const response = await axios.post(`/api/files/delete`, { filename: filename });
+        this.getFiles();
+      } catch (error){
+        console.error("Error fetching data:", error);
+      }
+    },
+
+  },
+
+  mounted(){
+    this.getFiles();
+  },
+
+  unmounted(){
+
   }
 };
 </script>
@@ -162,7 +216,6 @@ html, body {
   user-select: none;
 }
 
-/* Fullscreen Backstage Layout */
 .excel-backstage {
   display: flex;
   width: 100vw;
@@ -170,7 +223,6 @@ html, body {
   background-color: var(--color-bg-main);
 }
 
-/* Left Sidebar */
 .sidebar {
   width: 140px;
   background-color: var(--color-primary);
@@ -219,7 +271,6 @@ html, body {
   margin-bottom: 10px;
 }
 
-/* Main Content Section */
 .main-content {
   flex: 1;
   padding: 40px 60px;
@@ -253,6 +304,28 @@ html, body {
   font-weight: 600;
 }
 
+.create-file-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-name-input {
+  padding: 7px 12px;
+  font-size: 14px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 2px;
+  outline: none;
+  font-family: inherit;
+  color: var(--color-text-main);
+  background-color: #ffffff;
+  transition: border-color 0.15s ease;
+}
+
+.file-name-input:focus {
+  border-color: var(--color-primary);
+}
+
 .btn-create {
   background-color: var(--color-primary);
   color: var(--color-sidebar-text);
@@ -262,13 +335,14 @@ html, body {
   font-weight: 600;
   border-radius: 2px;
   cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
 }
 
 .btn-create:hover {
   background-color: var(--color-primary-hover);
 }
 
-/* File Item List */
 .file-list {
   list-style: none;
   padding: 0;

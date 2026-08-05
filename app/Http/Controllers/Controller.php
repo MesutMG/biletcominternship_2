@@ -2,166 +2,206 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\File;
+use App\Models\Sheet;
+use App\Models\SheetRow;
 use Illuminate\Http\Request;
-use App\Models\ExcelTable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 
-class Controller
-{
-    protected array $tables = [];
-
-    public function __construct() {
-        $dbName = DB::getDatabaseName();
-        $allTables = DB::select('SHOW TABLES');
-        $keyName = "Tables_in_{$dbName}";
-
-        $sheetNames = [];
-        foreach ($allTables as $table) {
-            if (preg_match('/^sheet\d+$/i', $table->$keyName)) {
-                $sheetNames[] = $table->$keyName;
-            }
-        }
-
-        foreach ($sheetNames as $sheetName) {
-            $this->tables[] = (new ExcelTable())->setTable($sheetName);
-        }
-
-        if (empty($this->tables)) {
-            $this->tables[] = (new ExcelTable())->setTable('sheet1');
-        }
-    }
-
-    private function getSheet(int $pageNum) {
-        return $this->tables[$pageNum - 1] ?? null;
-    }
-
-    private function getColCount(string $tableName) {
-        $columns = Schema::getColumnListing($tableName);
-        return array_values(array_filter($columns, fn($col) => is_numeric($col)));
-    }
-
-    private function getRowCount(string $tableName) {
-        return DB::table($tableName)->count();
-    }
-
-    public function tabloIstegi(Request $request) {
-        $sortParam = $request->input('sortparam', 'id');
-        $sortDir   = $request->input('sortdir', 'ASC');
-        $pageNum   = (int) $request->input('pagenum', 1);
-
-        $model = $this->getSheet($pageNum);
-        if (!$model) {
-            return response()->json(['status' => 'error', 'message' => "Sheet at index {$pageNum} does not exist."], 404);
-        }
-
-        $data = $model->newQuery()->orderBy($sortParam, $sortDir)->get();
-
-        return response()->json([
-            'data'      => $data,
-            'rowcount'  => $data->count(),
-            'colcount'  => count($this->getColCount($model->getTable())),
-            'pagecount' => count($this->tables)
-        ]);
-    }
+//tabloIstegi -> getPage
+//cellEdit -> editCell
     
-    public function cellEdit(Request $request) {
+class Controller {
+    protected function getFile(string $fileName): ?File {
+        return File::where('name', $fileName)->first();
+    }
+
+    protected function getSheet(int $fileId, int $pageNum): ?Sheet {
+        return Sheet::where('file_id', $fileId)
+                    ->where('sheet_index', $pageNum)
+                    ->first();
+    }
+
+    protected function getSheetRow(int $sheetId, int $rowIndex): ?SheetRow {
+        return SheetRow::where('sheet_id', $sheetId)
+                    ->where('row_index', $rowIndex)
+                    ->first();
+    }
+
+    protected function getAllSheetRows(int $sheetId) {
+        return SheetRow::where('sheet_id', $sheetId)
+                    ->orderBy('row_index', 'asc')
+                    ->get();
+    }
+
+    /*--------------------------------------------------------------------------------------*/
+
+    public function createFile(Request $request) {
         $request->validate([
-            'rowindex' => 'required|numeric', //starts from 0
-            'colindex' => 'required|numeric', //starts from 0
-            'data'     => 'nullable|string'
+            'filename' => 'required|string'
         ]);
 
-        $pageNum = (int) $request->input('pagenum', 1);
-        $model = $this->getSheet($pageNum);
+        $fileName = $request->input('filename');
 
-        if (!$model) {
-            return response()->json(['status' => 'error', 'message' => 'Sheet not found'], 404);
+        $newFile = File::create(['name' => $fileName]);
+
+        $newSheet = Sheet::create([
+            'file_id' => $newFile->id,
+            'sheet_index' => 1,
+            'col_count' => 10
+        ]);
+
+        for ($i=0; $i < 10; $i++) {
+            $newSheetRow = SheetRow::create([
+                'sheet_id' => $newSheet->id,
+                'row_index' => $i,
+                'data' => array_fill_keys(range(0, 9), "")
+            ]);
         }
-
-        $model->newQuery()
-            ->where('id', $request->input('rowindex')+1)
-            ->update([(int) $request->input('colindex') => $request->input('data', ' ')]);
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Cell updated successfully.'
+            'message' => 'File added successfully.'
         ]);
     }
 
-    public function addColumn(Request $request) {
-        $pageNum = (int) $request->input('pagenum', 1);
-        $model = $this->getSheet($pageNum);
+    public function deleteFile(Request $request) {
+        $request->validate([
+            'filename' => 'required|string'
+        ]);
 
-        if (!$model) {
-            return response()->json(['status' => 'error', 'message' => 'Sheet not found'], 404);
-        }
+        $file = $this->getFile($request->input('filename'));
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
 
-        $tableName = $model->getTable();
-
-        //columns start at 0, counting them gives the index for the next column
-        $newColIndex = count($this->getColCount($tableName)); 
-
-        Schema::table($tableName, function (Blueprint $table) use ($newColIndex) {
-            $table->string((string) $newColIndex)->nullable();
-        });
+        $file->delete();
+        //cascading delete drops 'children sheets and their children sheet_rows' in mysql itself
 
         return response()->json([
             'status'  => 'success',
-            'message' => "Added column {$newColIndex} successfully."
+            'message' => 'File deleted successfully.'
         ]);
     }
 
-    public function deleteColumn(Request $request) {
+    public function getFiles(Request $request) {
+        $files = File::withCount('sheets')->get();
+
+        return response()->json([
+            'status' => 'success',
+            'files'  => $files
+        ]);
+    }
+
+    public function addPage(Request $request) {
         $request->validate([
-            'colindex' => 'required|numeric',
+            'filename' => 'required|string'
+        ]);
+        $fileName = $request->input('filename');
+
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
+
+        $newSheetIndex = $file->sheets()->count() + 1;
+
+        $newSheet = Sheet::create([
+            'file_id' => $file->id,
+            'sheet_index' => $newSheetIndex,
+            'col_count' => 10
+        ]);
+
+        for ($i=0; $i < 10; $i++) {
+            $newSheetRow = SheetRow::create([
+                'sheet_id' => $newSheet->id,
+                'row_index' => $i,
+                'data' => array_fill_keys(range(0, 9), "")
+            ]);
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Page created successfully.'
+        ]);
+    }
+
+    public function deletePage(Request $request) {
+        $request->validate([
+            'filename' => 'required|string',
             'pagenum'  => 'required|numeric'
         ]);
 
-        $colIndex = $request->input('colindex');
-        $pageNum = (int) $request->input('pagenum', 1);
+        $pageNum = (int) $request->input('pagenum');
 
-        $model = $this->getSheet($pageNum);
-        if (!$model) {
-            return response()->json(['status' => 'error', 'message' => 'Sheet not found'], 404);
-        }
+        $file = $this->getFile($request->input('filename'));
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
 
-        $tableName = $model->getTable();
-        $cols = $this->getColCount($tableName);
-        $totalCols = count($cols);
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
 
-        if (!in_array((string)$colIndex,$cols, true)) {
-            return response()->json(['status' => 'error', 'message' => 'Column does not exist'], 400);
-        }
+        $sheet->delete();
 
-        DB::statement("ALTER TABLE `{$tableName}` DROP COLUMN `{$colIndex}`");
-
-        for ($i = $colIndex + 1; $i < $totalCols; $i++) {
-            $oldName = (string)$i;
-            $newName = (string) ($i - 1);
-
-            DB::statement("ALTER TABLE `{$tableName}` RENAME COLUMN `{$oldName}` TO `{$newName}`");
-        }
+        Sheet::where('file_id', $file->id)
+             ->where('sheet_index', '>', $pageNum)
+             ->decrement('sheet_index');
 
         return response()->json([
             'status'  => 'success',
-            'message' => "Column {$colIndex} deleted and higher columns shifted."
+            'message' => 'Page deleted successfully.'
+        ]);
+    }
+
+    public function getPage(Request $request) {
+        $request->validate([
+            'filename' => 'required|string',
+            'pagenum' => 'numeric'
+        ]);
+
+        $fileName = $request->input('filename');
+        $pageNum   = (int) $request->input('pagenum', 1);
+
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
+
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
+
+        $sheetRows = $this->getAllSheetRows($sheet->id);
+        //each $sheetRow->data is automatically cast to a PHP array
+        //$casts = ['data' => 'array'] in SheetRow.php
+        
+        $gridData = $sheetRows->pluck('data');
+
+        return response()->json([
+            'data'      => $gridData,
+            'rowcount'  => $sheetRows->count(),
+            'colcount'  => $sheet->col_count,
+            'pagecount' => $file->sheets()->count()
         ]);
     }
 
     public function addRow(Request $request) {
-        $pageNum = (int) $request->input('pagenum', 1);
-        $model = $this->getSheet($pageNum);
+        $request->validate([
+            'filename' => 'required|string',
+            'pagenum' => 'required|numeric'
+        ]);
 
-        if (!$model) {
-            return response()->json(['status' => 'error', 'message' => 'Sheet not found'], 404);
-        }
+        $fileName = $request->input('filename');
+        $pageNum = (int) $request->input('pagenum');
 
-        $cols = $this->getColCount($model->getTable());
-        $newRowData = array_fill_keys($cols, null); 
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
 
-        $model->newQuery()->create($newRowData);
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
+
+        $nextRowIndex = $sheet->rows()->count();
+        $newRowData = array_fill_keys(range(0, $sheet->col_count - 1), "");
+
+        SheetRow::create([
+            'sheet_id'  => $sheet->id,
+            'row_index' => $nextRowIndex,
+            'data'      => $newRowData
+        ]);
 
         return response()->json([
             'status'  => 'success',
@@ -169,56 +209,209 @@ class Controller
         ]);
     }
 
-    public function deleteRow(Request $request) {
+    public function insertRow(Request $request) {
         $request->validate([
-            'rowindex' => 'required|numeric',
-            'pagenum'  => 'required|numeric'
+            'filename' => 'required|string',
+            'pagenum' => 'required|numeric',
+            'targetrowindex' => 'required|numeric'
         ]);
 
-        $rowIndex = (int) $request->input('rowindex');
-        $pageNum  = (int) $request->input('pagenum', 1);
-        
-        $model = $this->getSheet($pageNum);
-        if (!$model) {
-            return response()->json(['status' => 'error', 'message' => 'Sheet not found'], 404);
-        }
+        $fileName = $request->input('filename');
+        $pageNum = (int) $request->input('pagenum');
+        $targetRowIndex = (int) $request->input('targetrowindex');
 
-        $tableName = $model->getTable();
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
 
-        //adjust + 1 since rowindex is 0 based on frontend
-        $targetId = $rowIndex + 1; 
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
 
-        DB::table($tableName)->where('id', $targetId)->delete();
+        SheetRow::where('sheet_id', $sheet->id)
+                ->where('row_index', '>=', $targetRowIndex)
+                ->orderBy('row_index', 'desc')
+                ->increment('row_index');
+
+        SheetRow::create([
+            'sheet_id'  => $sheet->id,
+            'row_index' => $targetRowIndex,
+            'data'      => array_fill_keys(range(0, $sheet->col_count - 1), "")
+        ]);
 
         return response()->json([
             'status'  => 'success',
-            'message' => "Row {$targetId} deleted successfully."
+            'message' => 'Inserted row successfully.'
         ]);
     }
-    
-    public function addPage(Request $request) {
+
+    public function deleteRow(Request $request) {
         $request->validate([
+            'filename' => 'required|string',
+            'pagenum' => 'required|numeric',
+            'rowindex' => 'required|numeric'
+        ]);
+
+        $fileName = $request->input('filename');
+        $pageNum = (int) $request->input('pagenum');
+        $rowIndex = (int) $request->input('rowindex');
+
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
+
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
+
+        $sheetRow = $this->getSheetRow($sheet->id, $rowIndex);
+        if (!$sheetRow) return response()->json(['status' => 'error', 'message' => 'Requested row is not found' ], 404);
+
+        $sheetRow->delete();
+
+        SheetRow::where('sheet_id', $sheet->id)
+                ->where('row_index', '>', $rowIndex)
+                ->decrement('row_index');
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Deleted row successfully.'
+        ]);
+    }
+
+    public function addColumn(Request $request) {
+        $request->validate([
+            'filename' => 'required|string',
             'pagenum' => 'required|numeric'
         ]);
 
+        $fileName = $request->input('filename');
         $pageNum = (int) $request->input('pagenum');
-        $newTableName = "sheet" . $pageNum;
 
-        DB::statement("CREATE TABLE {$newTableName} LIKE sheet0");
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
 
-        $cols = $this->getColCount($newTableName);
-        $newRowData = array_fill_keys($cols, null);
-        
-        //generares 10 empty rows
-        $insertData = array_fill(0, 10, $newRowData); 
-        DB::table($newTableName)->insert($insertData);
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
 
-        $this->tables[] = (new ExcelTable())->setTable($newTableName);
+        $newColIndex = (string) $sheet->col_count;
+        $sheet->increment('col_count');
+
+        $sheetRows = $this->getAllSheetRows($sheet->id);
+
+        foreach ($sheetRows as $sheetRow) {
+            $rowData = $sheetRow->data;
+            $rowData[$newColIndex] = "";
+            $sheetRow->data = $rowData;
+            $sheetRow->save();
+        }
 
         return response()->json([
-            'status'    => 'success',
-            'message'   => "Page {$newTableName} created successfully with blank rows.",
-            'pagecount' => count($this->tables)
+            'status'  => 'success',
+            'message' => "Added column {$newColIndex} successfully."
+        ]);
+    }
+
+    public function insertColumn(Request $request) {
+        $request->validate([
+            'filename' => 'required|string',
+            'pagenum' => 'required|numeric',
+            'targetcolindex' => 'required|numeric'
+        ]);
+
+        $fileName = $request->input('filename');
+        $pageNum = (int) $request->input('pagenum');
+        $targetColIndex = (int) $request->input('targetcolindex');
+
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
+
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
+
+        $sheetRows = $this->getAllSheetRows($sheet->id);
+
+        foreach ($sheetRows as $sheetRow) {
+            $rowData = $sheetRow->data;
+            array_splice($rowData, $targetColIndex, 0, "");
+            $sheetRow->data = $rowData;
+            $sheetRow->save();
+        }
+
+        $sheet->increment('col_count');
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Inserted column successfully.'
+        ]);
+    }
+
+    public function deleteColumn(Request $request) {
+        $request->validate([
+            'filename' => 'required|string',
+            'pagenum' => 'required|numeric',
+            'colindex' => 'required|numeric'
+        ]);
+
+        $fileName = $request->input('filename');
+        $pageNum = (int) $request->input('pagenum');
+        $colIndex = (int) $request->input('colindex');
+
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
+
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
+
+        $sheetRows = $this->getAllSheetRows($sheet->id);
+        if (!$sheetRows) return response()->json(['status' => 'error', 'message' => 'Requested rows are not found' ], 404);
+
+        foreach ($sheetRows as $sheetRow) {
+            $rowData = $sheetRow->data;
+
+            //remove the element starting at $colIndex and auto-shift the ones after
+            array_splice($rowData, $colIndex, 1);
+
+            $sheetRow->data = $rowData;
+            $sheetRow->save();
+        }
+
+        $sheet->decrement('col_count');
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Deleted column successfully.'
+        ]);
+    }
+
+    public function editCell(Request $request) {
+        $request->validate([
+            'filename' => 'required|string',
+            'pagenum' => 'required|numeric',
+            'rowindex' => 'required|numeric',
+            'colindex' => 'required|numeric',
+            'data'     => 'nullable|string'
+        ]);
+
+        $fileName = $request->input('filename');
+        $pageNum = (int) $request->input('pagenum');
+        $rowIndex = (int) $request->input('rowindex');
+        $colIndex = $request->input('colindex');
+        $data = $request->input('data', '');
+
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
+
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
+
+        $sheetRow = $this->getSheetRow($sheet->id, $rowIndex);
+        if (!$sheetRow) return response()->json(['status' => 'error', 'message' => 'Requested row is not found' ], 404);
+
+        $rowData = $sheetRow->data;
+        $rowData[$colIndex] = $data;
+        $sheetRow->data = $rowData;
+        $sheetRow->save();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Cell updated successfully.'
         ]);
     }
 }

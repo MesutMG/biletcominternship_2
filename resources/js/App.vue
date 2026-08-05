@@ -1,5 +1,5 @@
 <template>
-<div @contextmenu.prevent>
+<div @contextmenu.prevent :style="themeStyles">
 
   <!-- --------------------------- CONTEXT MENU ------------------------------ -->
   <div 
@@ -38,12 +38,12 @@
     <table>
         <thead>
         <tr>
-          <th class="excel-corner">/</th>
+          <th class="excel-corner"></th>
           <th v-for="(i, index) in columns" v-on:click="columnClicked(index)" :key="index" class="excel-header" @contextmenu="openContextMenuCol($event,index)">
             {{ i }}
           </th>
 
-          <th v-on:click="addColumn()" class="excel-header">
+          <th v-on:click="addColumn()" class="excel-header add-btn">
             +
           </th>
         </tr>
@@ -78,9 +78,11 @@
         </tr>
       </tbody>
       <tfoot>
-        <th v-on:click="addRow()" class="excel-row-number">
-            +
-        </th>
+        <tr>
+            <th v-on:click="addRow()" class="excel-row-number add-btn">
+                +
+            </th>
+        </tr>
       </tfoot>
     </table>
 
@@ -92,91 +94,101 @@
         class="sheetSelect"
         :class="{ 'active-sheet': i === currentPage }"
       >
-        Page{{ i }}
+        Sheet{{ i }}
       </div>
-      <div v-on:click="addPage()" class="sheetSelect" style="margin-right: 20px;">+</div>
-      <div v-on:click="saveToJSON()" class="sheetSelect">Indir</div>
+      <div v-on:click="addPage()" class="sheetSelect add-sheet-btn">+</div>
+      <div style="flex-grow: 1;"></div>
+      <div v-on:click="exitToFiles()" class="sheetSelect exit-btn">Exit</div>
     </div>
 
   </div>
 </div>
 </template>
 
-<script setup>import axios from 'axios';</script>
+<script setup>
+import axios from 'axios';
+</script>
 
 <script>
-import { setBlockTracking } from 'vue';
-    export default {
-
-    directives: {
-      focus: {
-        mounted(c) {
-          c.focus();
-        }
+export default {
+  directives: {
+    focus: {
+      mounted(c) {
+        c.focus();
       }
-    },
+    }
+  },
 
-    computed: {
-      columns() {
-        const cols = [];
-        for (let i = 0; i < this.colcount; i++) {
-          let letter = '';
-          let temp = i;
-          while (temp >= 0) {
-            letter = String.fromCharCode((temp % 26) + 65) + letter;
-            temp = Math.floor(temp / 26) - 1;
-          }
-          cols.push(letter);
+  computed: {
+    columns() {
+      const cols = [];
+      for (let i = 0; i < this.colcount; i++) {
+        let letter = '';
+        let temp = i;
+        while (temp >= 0) {
+          letter = String.fromCharCode((temp % 26) + 65) + letter;
+          temp = Math.floor(temp / 26) - 1;
         }
-        return cols;
+        cols.push(letter);
       }
+      return cols;
     },
-
-    data() {
+    themeStyles() {
       return {
-        contextMenuCell: {
-          visible: false,
-          x: 0,
-          y: 0
-        },
-        contextMenuCol: {
-          visible: false,
-          x: 0,
-          y: 0
-        },
-        contextMenuRow: {
-          visible: false,
-          x: 0,
-          y: 0
-        },
-        targetCol: null,
-        targetRow: null,
-        sortButtons: ['id', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
-        sortButtonsText: ['id ↓', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
-        globalSorting: ['id', 'ASC'],
-        colcount: 10,
-        rowcount: 10,
-        totalpages: 1,
-        currentPage: 1,
-        response: 2,
-        selectedColumn: null,
-        selectedRow: null,
-        writing: null,
-        tableData: [],
-        editingCell: { row: null, col: null }
+        '--color-primary': this.theme.primary,
+        '--color-primary-hover': this.theme.primaryHover,
+        '--color-primary-active': this.theme.primaryActive,
+        '--color-bg-main': this.theme.bgMain,
+        '--color-text-main': this.theme.textMain,
+        '--color-border-light': this.theme.borderLight,
+        '--color-highlight': '#e3f0e8', // Excel-like light green highlight
       };
-    },
+    }
+  },
 
-    methods: {
-    async createTableHTML(sorting = this.globalSorting, pageNum = this.currentPage) {
+  data() {
+    return {
+      filename: null,
+      contextMenuCell: { visible: false, x: 0, y: 0 },
+      contextMenuCol: { visible: false, x: 0, y: 0 },
+      contextMenuRow: { visible: false, x: 0, y: 0 },
+      targetCol: null,
+      targetRow: null,
+      colcount: 10,
+      rowcount: 10,
+      totalpages: 1,
+      currentPage: 1,
+      response: null,
+      selectedColumn: null,
+      selectedRow: null,
+      writing: null,
+      tableData: [],
+      editingCell: { row: null, col: null },
+      
+      // Color Palette sync from Files page
+      themeColor: 'green',
+      theme: {
+        primary: '#107c41',
+        primaryHover: '#0e6e39',
+        primaryActive: '#0c5e30',
+        sidebarText: '#ffffff',
+        bgMain: '#ffffff',
+        textMain: '#333333',
+        textSecondary: '#555555',
+        borderLight: '#e1e1e1',
+        itemBorderHover: '#8bb69a',
+      }
+    };
+  },
+
+  methods: {
+    async createTableHTML(pageNum = this.currentPage) {
       try {
-        const queryParams = new URLSearchParams({
-          sortparam: sorting[0],
-          sortdir: sorting[1],
+        const response = await axios.post('/api/table/get-page', {
+          filename: this.filename ,
           pagenum: pageNum
         });
 
-        const response = await axios.get(`/api/table?${queryParams.toString()}`);
         this.response = response.data;
         
         this.tableData = this.response.data;
@@ -197,27 +209,22 @@ import { setBlockTracking } from 'vue';
     },
 
     async saveCell(rowIndex, colIndex, pageNum = this.currentPage) {
-      if (this.editingCell.row === null || this.editingCell.col === null) { return };
+      if (this.editingCell.row === null || this.editingCell.col === null) return;
       
-      console.log(rowIndex, colIndex, this.tableData[rowIndex][colIndex], this.writing, pageNum);
-
       const newValue = this.writing ? this.writing : '';
       this.tableData[rowIndex][colIndex] = newValue;
 
       this.editingCell = { row: null, col: null };
-      this.writing = this.writing ? this.writing : '';
-
-      this.editingCell = { row: null, col: null };
+      this.writing = newValue;
 
       try {
-        const queryParams = new URLSearchParams({
+        await axios.post('/api/table/edit-cell', {
+          filename: this.filename,
+          pagenum: pageNum,
           rowindex: rowIndex,
           colindex: colIndex,
-          data: this.writing,
-          pagenum: pageNum,
+          data: newValue
         });
-        
-        await axios.put(`/api/table?${queryParams.toString()}`);
 
       } catch (error) {
         console.error("Error saving cell:", error);
@@ -226,17 +233,20 @@ import { setBlockTracking } from 'vue';
 
     columnClicked(columnIndex){
         if(this.selectedColumn == columnIndex) { this.selectedColumn = null; }
-        else                                   { this.selectedColumn = columnIndex; this.selectedRow = null;}
+        else { this.selectedColumn = columnIndex; this.selectedRow = null;}
     },
 
     rowClicked(rowIndex){
         if(this.selectedRow == rowIndex) { this.selectedRow = null; }
-        else                             { this.selectedRow = rowIndex; this.selectedColumn = null;}
+        else { this.selectedRow = rowIndex; this.selectedColumn = null;}
     },
 
     async addColumn(pageNum = this.currentPage){
         this.colcount++;
-        await axios.post('/api/table/add-column', { pagenum: pageNum });
+        await axios.post('/api/table/add-column', {
+          filename: this.filename,
+          pagenum: pageNum
+        });
     },
 
     async deleteColumn(colIndex, pageNum = this.currentPage){
@@ -244,12 +254,16 @@ import { setBlockTracking } from 'vue';
 
       this.colcount--;
       try {
-        
-        await axios.post('/api/table/delete-column', { colindex: colIndex, pagenum: pageNum });
+
+        await axios.post('/api/table/delete-column', {
+          filename: this.filename,
+          pagenum: pageNum,
+          colindex: colIndex
+        });
         
         this.targetCol = null;
         this.closeContextMenuCol();
-        
+
         await this.createTableHTML();
       } catch (error) {
         console.error("Error deleting column:", error);
@@ -258,17 +272,20 @@ import { setBlockTracking } from 'vue';
 
     async addRow(pageNum = this.currentPage) {
       try {
-        await axios.post('/api/table/add-row', { pagenum: pageNum });
+        await axios.post('/api/table/add-row', {
+          filename: this.filename,
+          pagenum: pageNum
+        });
 
         const newRow = {};
         for (let i = 1; i <= this.colcount; i++) {
-          newRow['C' + i] = '';
+          newRow[i] = '';
         }
 
         this.tableData.push(newRow);
-
+        
         this.rowcount++;
-
+        
       } catch (error) {
         console.error("Error adding row:", error);
       }
@@ -279,11 +296,15 @@ import { setBlockTracking } from 'vue';
 
       this.rowcount--;
       try {
-        await axios.post('/api/table/delete-row', { rowindex: rowIndex, pagenum: pageNum });
-        
+        await axios.post('/api/table/delete-row', {
+          filename: this.filename,
+          rowindex: rowIndex,
+          pagenum: pageNum
+        });
+
         this.targetRow = null;
         this.closeContextMenuCol();
-        
+
         await this.createTableHTML();
       } catch (error) {
         console.error("Error deleting column:", error);
@@ -292,7 +313,7 @@ import { setBlockTracking } from 'vue';
 
     async addPage(){
       this.totalpages++;
-      await axios.post('/api/table/add-page', { pagenum: this.totalpages });
+      await axios.post('/api/table/add-page', { filename: this.filename, pagenum: this.totalpages });
       this.currentPage = this.totalpages;
       this.createTableHTML();
     },
@@ -300,6 +321,10 @@ import { setBlockTracking } from 'vue';
     async changePageTo(newPageNum){
       this.currentPage = newPageNum;
       this.createTableHTML();
+    },
+
+    async exitToFiles(){
+      window.location.href = '/files';
     },
 
     range(start, end, step = 1) {
@@ -310,20 +335,6 @@ import { setBlockTracking } from 'vue';
     return result;
     },
 
-    saveToJSON() {
-      const jsonString = JSON.stringify(this.tableData, null, 2);
-      
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const link = document.createElement('a');
-      
-      link.href = URL.createObjectURL(blob);
-      link.download = `sheet_${this.currentPage}_data.json`;
-      link.click();
-      
-      //clean up memory URL
-      URL.revokeObjectURL(link.href);
-    },
-
     /* ------------------------------------ CONTEXT MENU ------------------------------------ */ 
     openContextMenuCell(event) {
       this.closeContextMenuCol();
@@ -332,10 +343,7 @@ import { setBlockTracking } from 'vue';
       this.contextMenuCell.y = event.clientY;
       this.contextMenuCell.visible = true;
     },
-
-    closeContextMenuCell() {
-      this.contextMenuCell.visible = false;
-    },
+    closeContextMenuCell() { this.contextMenuCell.visible = false; },
 
     openContextMenuCol(event, index) {
       this.closeContextMenuCell();
@@ -345,10 +353,7 @@ import { setBlockTracking } from 'vue';
       this.contextMenuCol.y = event.clientY;
       this.contextMenuCol.visible = true;
     },
-
-    closeContextMenuCol() {
-      this.contextMenuCol.visible = false;
-    },
+    closeContextMenuCol() { this.contextMenuCol.visible = false; },
 
     openContextMenuRow(event, index) {
       this.closeContextMenuCell();
@@ -358,21 +363,29 @@ import { setBlockTracking } from 'vue';
       this.contextMenuRow.y = event.clientY;
       this.contextMenuRow.visible = true;
     },
+    closeContextMenuRow() { this.contextMenuRow.visible = false; },
 
-    closeContextMenuRow() {
-      this.contextMenuRow.visible = false;
-    },
-
-    handleAction(action) { /* ------------------------------- handle methods ---------------------------------*/
+    handleAction(action) {
       console.log(`Action clicked: ${action}`);
       this.closeContextMenuCell();
       this.closeContextMenuCol();
     },
-    /* ------------------------------------ CONTEXT MENU ------------------------------------ */
   },
   
-  mounted() {
-    this.createTableHTML();
+  async mounted() {
+    this.filename = localStorage.getItem('activeFileName');
+    const cachedData = localStorage.getItem('activeSheetData');
+  
+    if (cachedData) {
+      const parsed = JSON.parse(cachedData);
+      this.tableData = parsed.data;
+      this.rowcount = parsed.rowcount;
+      this.colcount = parsed.colcount;
+      this.totalpages = parsed.pagecount;
+    } else if (this.filename) {
+      this.createTableHTML();
+    }
+
     window.addEventListener('click', this.closeContextMenuCell);
     window.addEventListener('click', this.closeContextMenuCol);
     window.addEventListener('click', this.closeContextMenuRow);
@@ -383,10 +396,6 @@ import { setBlockTracking } from 'vue';
     window.removeEventListener('click', this.closeContextMenuCol);
     window.removeEventListener('click', this.closeContextMenuRow);
   }
-
-
-
-
 }
 </script>
 
@@ -395,81 +404,88 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  font-size: 26px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
   cursor: default;
   user-select: none;
+  background-color: var(--color-bg-main);
 }
 
 .excel-container {
-  height: 100vh;
+  height: calc(100vh - 35px);
   overflow: auto;
   box-sizing: border-box;
-  padding-bottom: 40px;
 }
 
 table {
   border-collapse: collapse;
   table-layout: fixed;
+  background-color: #fff;
 }
 
 th, td {
-  width: 100px;
-  max-width: 100px;
-  overflow:hidden;
-  border: 1px solid #d4d4d4; 
-  padding: 0 3px;
-  height: 24px;
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-light); 
+  padding: 0 4px;
+  height: 22px;
+}
+
+
+.excel-corner, .excel-header, .excel-row-number {
+  background-color: #e6e6e6;
+  color: #333;
+  font-weight: normal;
+  text-align: center;
+  border: 1px solid #c8c8c8;
 }
 
 .excel-corner {
-  background-color: #f3f3f3;
-  width: 40px;
+  width: 35px;
+  min-width: 35px;
   position: sticky;
   top: 0;
   left: 0;
   z-index: 3;
-  border-bottom: 2px solid #bbb;
-  border-right: 2px solid #bbb;
 }
 
 .excel-header {
-  width: 100px;
-  min-width: 100px;
-  max-width: 100px;
-  background-color: #f3f3f3;
-  color: #333;
-  font-weight: normal;
-  text-align: center;
   position: sticky;
   top: 0;
   z-index: 2;
-  border-bottom: 2px solid #bbb;
+  cursor: pointer;
 }
 
 .excel-row-number {
-  background-color: #f3f3f3;
-  color: #666;
-  text-align: center;
-  font-weight: normal;
-  width: 40px;
+  width: 35px;
+  min-width: 35px;
   position: sticky;
   left: 0;
   z-index: 1;
-  border-right: 2px solid #bbb;
+  cursor: pointer;
 }
 
-.cell{
-  min-width: 100px;
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: clip;
+.excel-header:hover, .excel-row-number:hover {
+  background-color: #d4d4d4;
+}
+
+.add-btn {
+  color: #666;
+  font-weight: bold;
+}
+
+
+.cell {
   background-color: #ffffff;
+  white-space: nowrap;
+  text-align: left;
 }
 
 .cell-content {
-  font-size: 20px;
-  min-height: 24px;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 .cell-input {
@@ -477,85 +493,113 @@ th, td {
   height: 100%;
   box-sizing: border-box;
   border: none;
-  outline: transparent;
+  outline: none;
   padding: 0;
   margin: 0;
-  font-size: 18px;
+  font-size: 14px;
   font-family: inherit;
   background-color: white;
 }
 
-.cell:hover {
-  outline: 1px solid #a6a6a6;
-}
 
 .active-cell {
-  outline: 2px solid #424242;
+  outline: 2px solid var(--color-primary);
   outline-offset: -2px;
   position: relative;
   z-index: 9;
 }
 
-.active-cell:hover {
-  outline: 2px solid #424242;
-  outline-offset: -2px;
-  position: relative;
-  z-index: 9;
+
+.active-cell::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  background-color: var(--color-primary);
+  border: 1px solid #fff;
+  z-index: 10;
+  cursor: crosshair;
 }
 
-.highlighted-cell{
-    background-color: #bbbbbb;
+.highlighted-cell {
+  background-color: var(--color-highlight);
 }
 
-.highlighted-cell:hover {
-  outline: 1px solid #424242;
-}
 
 .sheetContainer {
   position: fixed;
-  bottom: 10px;
-  right: 10px;
-  z-index: 9;
+  bottom: 0;
+  padding-inline: 20px;
+  width: 100%;
+  height: 35px;
+  background-color: #f3f3f3;
+  border-top: 1px solid #c8c8c8;
   display: flex;
-  flex-direction: row;
-  gap: 1px;
-  transition: 0.3s ease;
+  align-items: center;
+  z-index: 100;
+  box-sizing: border-box;
 }
 
 .sheetSelect {
-  background-color: #f3f3f3;
-  border: 1px solid #292929;
-  padding: 5px;
-  font-size: 36px;
-  font-style: italic;
+  box-sizing: border-box;
+  padding: 0 16px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: #333;
   cursor: pointer;
+  border-right: 1px solid #d4d4d4;
+  border-bottom: 3px solid transparent;
+  background-color: #f3f3f3;
 }
 
 .active-sheet {
-  background-color: #f7deb1;        
+  background-color: #ffffff;        
+  color: var(--color-primary);
+  font-weight: 600;
+  border-bottom-color: var(--color-primary);
+}
+
+.sheetSelect:hover {
+  background-color: #eaeaea;
+}
+
+.add-sheet-btn {
+  font-size: 18px;
   font-weight: bold;
+  padding: 0 12px;
+}
+
+.exit-btn {
+  border-inline: 1px solid #d4d4d4;
+}
+
+.exit-btn:hover {
+  background-color: var(--color-delete-hover-bg, #fde8e8);
+  color: var(--color-delete-text, #a80000);
 }
 
 .custom-context-menu {
   position: fixed;
   z-index: 1000;
   background-color: #ffffff;
-  border: 1px solid #ccc;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  border-radius: 4px;
+  border: 1px solid #c8c8c8;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
   padding: 4px 0;
-  min-width: 140px;
+  min-width: 160px;
+  font-size: 13px;
 }
 
 .menu-item {
-  padding: 8px 16px;
-  font-size: 16px;
+  padding: 6px 20px;
   cursor: pointer;
   color: #333;
 }
 
 .menu-item:hover {
-  background-color: #f0f0f0;
+  background-color: #f3f3f3;
 }
-
 </style>
