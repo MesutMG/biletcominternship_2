@@ -14,9 +14,11 @@ Route::post('/table/delete-page', [Controller::class, 'deletePage']);
 Route::post('/table/add-row', [Controller::class, 'addRow']);
 Route::post('/table/insert-row', [Controller::class, 'insertRow']);
 Route::post('/table/delete-row', [Controller::class, 'deleteRow']);
+Route::post('/table/fill-row-with', [Controller::class, 'fillRowWith']);
 
 Route::post('/table/add-column', [Controller::class, 'addColumn']);
 Route::post('/table/insert-column', [Controller::class, 'insertColumn']);
 Route::post('/table/delete-column', [Controller::class, 'deleteColumn']);
+Route::post('/table/fill-column-with', [Controller::class, 'fillColumnWith']);
 
 Route::post('/table/edit-cell', [Controller::class, 'editCell']);
