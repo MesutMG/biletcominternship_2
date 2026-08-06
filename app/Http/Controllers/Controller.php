@@ -275,6 +275,37 @@ class Controller {
         ]);
     }
 
+    public function fillRowWith(Request $request) {
+        $request->validate([
+            'filename' => 'required|string',
+            'pagenum' => 'required|numeric',
+            'rowindex' => 'required|numeric',
+            'data' => 'nullable|string'
+        ]);
+
+        $fileName = $request->input('filename');
+        $pageNum = (int) $request->input('pagenum');
+        $rowIndex = (int) $request->input('rowindex');
+        $data = $request->input('data', '');
+
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
+
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
+
+        $sheetRow = $this->getSheetRow($sheet->id, $rowIndex);
+        if (!$sheetRow) return response()->json(['status' => 'error', 'message' => 'Requested row is not found' ], 404);
+
+        $sheetRow->data = array_fill_keys(range(0, $sheet->col_count - 1), $data);
+        $sheetRow->save();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Filled row successfully.'
+        ]);
+    }
+
     public function addColumn(Request $request) {
         $request->validate([
             'filename' => 'required|string',
@@ -377,6 +408,40 @@ class Controller {
         return response()->json([
             'status'  => 'success',
             'message' => 'Deleted column successfully.'
+        ]);
+    }
+
+    public function fillColumnWith(Request $request) {
+        $request->validate([
+            'filename' => 'required|string',
+            'pagenum' => 'required|numeric',
+            'colindex' => 'required|numeric',
+            'data' => 'nullable|string'
+        ]);
+
+        $fileName = $request->input('filename');
+        $pageNum = (int) $request->input('pagenum');
+        $colIndex = $request->input('colindex');
+        $data = $request->input('data', '');
+
+        $file = $this->getFile($fileName);
+        if (!$file) return response()->json(['status' => 'error', 'message' => 'Requested file is not found'], 404);
+
+        $sheet = $this->getSheet($file->id, $pageNum);
+        if (!$sheet) return response()->json(['status' => 'error', 'message' => 'Requested sheet is not found'], 404);
+
+        $sheetRows = $this->getAllSheetRows($sheet->id);
+
+        foreach ($sheetRows as $sheetRow) {
+            $rowData = $sheetRow->data;
+            $rowData[$colIndex] = $data;
+            $sheetRow->data = $rowData;
+            $sheetRow->save();
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Inserted column successfully.'
         ]);
     }
 
