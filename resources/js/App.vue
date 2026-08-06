@@ -10,13 +10,13 @@
     <div class="menu-header">{{ columns[selectedCell.col] }}{{ selectedCell.row + 1}}</div>
     <div class="menu-divider"></div>
 
-    <div class="menu-item" @click="handleAction('')">Copy</div>
-    <div class="menu-item" @click="handleAction('')">Cut</div>
-    <div class="menu-item" @click="handleAction('')">Paste</div>
-    <div class="menu-item" @click="handleAction('')">Delete</div>
+    <div class="menu-item" @click="copyCell()">Copy</div>
+    <div class="menu-item" @click="cutCell()">Cut</div>
+    <div class="menu-item" @click="pasteCell()">Paste</div>
+    <div class="menu-item" @click="clearCellData(selectedCell.row, selectedCell.col)">Delete</div>
   </div>
 
-    <div 
+  <div 
     v-if="contextMenuCol.visible"
     class="custom-context-menu"
     :style="{ top: contextMenuCol.y + 'px', left: contextMenuCol.x + 'px' }"
@@ -27,8 +27,19 @@
     <div class="menu-item" @click="deleteColumn(targetCol)">Delete</div>
     <div class="menu-item" @click="fillColumnWith(targetCol, '')">Empty</div>
     <div class="menu-item" @click="openColFillPrompt(targetCol)">Fill</div>
+    <div class="menu-item" v-on:mouseover="openInsertSubmenuCol()">Insert</div>
   </div>
 
+  <div
+    v-if="insertSubmenuCol.visible"
+    class="custom-context-menu"
+    :style="{ top: insertSubmenuCol.y + 'px', left: insertSubmenuCol.x + 'px' }"
+    v-on:mouseleave="closeInsertSubmenuCol()"
+  >
+    <div class="menu-item" @click="insertColumn(targetCol+1)">Insert Right</div>
+    <div class="menu-item" @click="insertColumn(targetCol)">Insert Left</div>
+  </div>
+  
   <div 
     v-if="contextMenuRow.visible"
     class="custom-context-menu"
@@ -40,6 +51,17 @@
     <div class="menu-item" @click="deleteRow(targetRow)">Delete</div>
     <div class="menu-item" @click="fillRowWith(targetRow, '')">Empty</div>
     <div class="menu-item" @click="openRowFillPrompt(targetRow)">Fill</div>
+    <div class="menu-item" v-on:mouseover="openInsertSubmenuRow()">Insert</div>
+  </div>
+
+  <div
+    v-if="insertSubmenuRow.visible"
+    class="custom-context-menu"
+    :style="{ top: insertSubmenuRow.y + 'px', left: insertSubmenuRow.x + 'px' }"
+    v-on:mouseleave="closeInsertSubmenuRow()"
+  >
+    <div class="menu-item" @click="insertRow(targetRow)">Insert Above</div>
+    <div class="menu-item" @click="insertRow(targetRow+1)">Insert Below</div>
   </div>
 
   <!-- --------------------------- CONTEXT MENU ------------------------------ -->
@@ -62,21 +84,27 @@
   <div class="excel-container">
     <table>
         <thead>
-        <tr>
-          <th class="excel-corner"></th>
-          <th v-for="(i, index) in columns" v-on:click="columnClicked(index)" :key="index" class="excel-header" @contextmenu="openContextMenuCol($event,index); columnClicked(index);">
-            {{ i }}
-          </th>
-
-          <th v-on:click="addColumn()" class="excel-header add-btn">
-            +
-          </th>
+          <tr>
+            <th class="excel-corner"></th>
+            <th v-for="(i, index) in columns" :key="index" 
+                :class="['excel-header', { 'header-highlighted': selectedColumn === index || selectedCell.col === index }]"
+                @click="columnClicked(index)" 
+                @contextmenu="openContextMenuCol($event, index); columnClicked(index);">
+              {{ i }}
+            </th>
+            <th @click="addColumn()" class="excel-header add-btn">
+              +
+            </th>
         </tr>
       </thead>
       
       <tbody>
         <tr v-for="(row_data, row_index) in tableData" :key="row_index">
-          <td class="excel-row-number" v-on:click="rowClicked(row_index)" @contextmenu="openContextMenuRow($event, row_index); rowClicked(row_index);">{{ row_index + 1 }}</td>
+          <td :class="['excel-row-number', { 'header-highlighted': selectedRow === row_index || selectedCell.row === row_index }]" 
+              @click="rowClicked(row_index)" 
+              @contextmenu="openContextMenuRow($event, row_index); rowClicked(row_index);">
+            {{ row_index + 1 }}
+          </td>
 
           <td v-for="(n, col_index) in colcount" :key="col_index" 
             :class="[
@@ -194,6 +222,8 @@ export default {
       contextMenuCell: { visible: false, x: 0, y: 0 },
       contextMenuCol: { visible: false, x: 0, y: 0 },
       contextMenuRow: { visible: false, x: 0, y: 0 },
+      insertSubmenuCol: {visible: false, x: 0, y: 0},
+      insertSubmenuRow: {visible: false, x: 0, y: 0},
       promptScene: 0,
       returnPrompt: 0,
       promptData: null,
@@ -236,26 +266,17 @@ export default {
     },
 
     selectCell(colIndex, rowIndex) {
-      this.selectedCell = {
-        col: colIndex,
-        row: rowIndex
-      };
-      this.editingCell = {
-        col: null,
-        row: null
-      };
+      this.selectedCell = { col: colIndex, row: rowIndex };
+      this.editingCell = { col: null, row: null };
+      
+      this.selectedColumn = null;
+      this.selectedRow = null;
     },
 
     editCell(colIndex, rowIndex) {
-      this.selectedCell = {
-        col: colIndex,
-        row: rowIndex
-      };
+      this.selectedCell = { col: colIndex, row: rowIndex };
       this.writing = this.tableData[rowIndex][colIndex] || '';
-      this.editingCell = {
-        col: colIndex,
-        row: rowIndex
-      };
+      this.editingCell = { col: colIndex, row: rowIndex };
     },
 
     async saveCell(rowIndex, colIndex, pageNum = this.currentPage) {
@@ -281,14 +302,20 @@ export default {
       }
     },
 
-    columnClicked(columnIndex){
-        if(this.selectedColumn == columnIndex) { this.selectedColumn = null; }
-        else { this.selectedColumn = columnIndex; this.selectedRow = null;}
+    columnClicked(columnIndex) {
+      this.selectedColumn = columnIndex;
+      this.selectedRow = null;
+      
+      this.selectedCell = { col: null, row: null };
+      this.editingCell = { col: null, row: null };
     },
 
-    rowClicked(rowIndex){
-        if(this.selectedRow == rowIndex) { this.selectedRow = null; }
-        else { this.selectedRow = rowIndex; this.selectedColumn = null;}
+    rowClicked(rowIndex) {
+      this.selectedRow = rowIndex;
+      this.selectedColumn = null;
+      
+      this.selectedCell = { col: null, row: null };
+      this.editingCell = { col: null, row: null };
     },
 
     async addColumn(pageNum = this.currentPage){
@@ -302,6 +329,20 @@ export default {
       } catch (error) {
         console.error("Error saving cell:", error);
         await this.createTableHTML();
+      }
+    },
+
+    async insertColumn(insertTargetColIndex){
+      try{
+        await axios.post('/api/table/insert-column', {
+          filename: this.filename,
+          pagenum: this.currentPage,
+          targetcolindex: insertTargetColIndex
+        });
+        await this.createTableHTML();
+        
+      } catch (error) {
+        console.error("Error inserting column:", error);
       }
     },
 
@@ -344,6 +385,20 @@ export default {
       } catch (error) {
         console.error("Error saving cell:", error);
         await this.createTableHTML();
+      }
+    },
+
+    async insertRow(insertTargetRow){
+      try{
+        await axios.post('/api/table/insert-row', {
+          filename: this.filename,
+          pagenum: this.currentPage,
+          targetrowindex: insertTargetRow
+        });
+        await this.createTableHTML();
+
+      } catch (error) {
+        console.error("Error inserting row:", error);
       }
     },
 
@@ -396,23 +451,30 @@ export default {
     return result;
     },
 
+
     /* ------------------------------------ CONTEXT MENU ------------------------------------ */ 
     openContextMenuCell(event, colIndex, rowIndex) {
       this.closeContextMenuCol();
       this.closeContextMenuRow();
+      this.closeInsertSubmenuCol();
+      this.closeInsertSubmenuRow();
       this.contextMenuCell.x = event.clientX;
       this.contextMenuCell.y = event.clientY;
       this.contextMenuCell.visible = true;
       this.contextMenuCellColIndex = colIndex;
       this.contextMenuCellRowIndex = rowIndex;
     },
+    
     closeContextMenuCell() {
       this.contextMenuCell.visible = false;
+      this.closeInsertSubmenuCol();
     },
 
     openContextMenuCol(event, index) {
       this.closeContextMenuCell();
       this.closeContextMenuRow();
+      this.closeInsertSubmenuCol();
+      this.closeInsertSubmenuRow();
       this.targetCol = index;
       this.contextMenuCol.x = event.clientX;
       this.contextMenuCol.y = event.clientY;
@@ -421,11 +483,14 @@ export default {
 
     closeContextMenuCol() {
       this.contextMenuCol.visible = false;
+      this.closeInsertSubmenuRow();
     },
 
     openContextMenuRow(event, index) {
       this.closeContextMenuCell();
       this.closeContextMenuCol();
+      this.closeInsertSubmenuCol();
+      this.closeInsertSubmenuRow();
       this.targetRow = index;
       this.contextMenuRow.x = event.clientX;
       this.contextMenuRow.y = event.clientY;
@@ -435,7 +500,28 @@ export default {
     closeContextMenuRow() {
       this.contextMenuRow.visible = false;
     },
+
+    openInsertSubmenuCol(){
+      this.insertSubmenuCol.x = this.contextMenuCol.x + 60;
+      this.insertSubmenuCol.y = this.contextMenuCol.y + 120;
+      this.insertSubmenuCol.visible = true;
+    },
+
+    closeInsertSubmenuCol(){
+      this.insertSubmenuCol.visible = false;
+    },
+
+    openInsertSubmenuRow(){
+      this.insertSubmenuRow.x = this.contextMenuRow.x + 60;
+      this.insertSubmenuRow.y = this.contextMenuRow.y + 120;
+      this.insertSubmenuRow.visible = true;
+    },
+
+    closeInsertSubmenuRow(){
+      this.insertSubmenuRow.visible = false;
+    },
     /* ------------------------------------ CONTEXT MENU ------------------------------------ */ 
+
 
     async fillRowWith(targetRow, data){
       try {  
@@ -513,7 +599,54 @@ export default {
     handleKeyDown(event) {
       if (this.promptScene === 1) return;
 
-      //only if a cell is selected
+      /* ----------------- FULL COLUMN SELECTION KEYBOARD NAVIGATION -------------- */
+      if (this.selectedColumn !== null) {
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          if (this.selectedColumn > 0) this.selectedColumn--;
+          return;
+        }
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          if (this.selectedColumn < this.colcount - 1) this.selectedColumn++;
+          return;
+        }
+        if (event.key === 'Backspace') {
+          event.preventDefault();
+          this.deleteColumn(this.selectedColumn);
+          // Adjust index if the very last column is deleted
+          if (this.selectedColumn >= this.colcount) {
+            this.selectedColumn = this.colcount > 0 ? this.colcount - 1 : null;
+          }
+          return;
+        }
+      }
+
+      /* ----------------- FULL ROW SELECTION KEYBOARD NAVIGATION -------------- */
+      if (this.selectedRow !== null) {
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          if (this.selectedRow > 0) this.selectedRow--;
+          return;
+        }
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          if (this.selectedRow < this.rowcount - 1) this.selectedRow++;
+          return;
+        }
+        if (event.key === 'Backspace') {
+          event.preventDefault();
+          this.deleteRow(this.selectedRow);
+          // Adjust index if the very last row is deleted
+          if (this.selectedRow >= this.rowcount) {
+            this.selectedRow = this.rowcount > 0 ? this.rowcount - 1 : null;
+          }
+          return;
+        }
+      }
+
+
+      /* ----------------- CELL SELECTION KEYBOARD NAVIGATION -------------- */
       if (this.selectedCell.col === null || this.selectedCell.row === null) return;
 
       const { col, row } = this.selectedCell;
@@ -522,74 +655,69 @@ export default {
         event.preventDefault();
 
         if (this.editingCell.col !== null) {
-          //enter pressed again
           this.saveCell(row, col);
         } else {
-          //enter pressed 1st
           this.editCell(col, row);
         }
         return;
       }
 
-      //disable arrow/backspace navigation while actively typing inside the input
       if (this.editingCell.col !== null) {
-        if (event.key === 'Tab'){
+        if (event.key === 'Tab') {
           event.preventDefault();
-          
-          if (this.editingCell.col !== null) {
-            this.saveCell(row, col);
-          }
+          this.saveCell(row, col);
 
           if (event.shiftKey) {
-            //shift + tab moves left
             if (col > 0) this.selectCell(col - 1, row);
           } else {
-            //tab moves right
             if (col < this.colcount - 1) this.selectCell(col + 1, row);
           }
         }
         return;
-      };
+      }
+
+      /* ----------------- COPY CUT PASTE -------------- */
+      if (event.ctrlKey || event.metaKey) {
+        if (event.key === 'c' || event.key === 'C') {
+          event.preventDefault();
+          this.copyCell();
+        } else if (event.key === 'x' || event.key === 'X') {
+          event.preventDefault();
+          this.cutCell();
+        } else if (event.key === 'v' || event.key === 'V') {
+          event.preventDefault();
+          this.pasteCell();
+        }
+        return;
+      }
 
       switch (event.key) {
         case 'ArrowUp':
           event.preventDefault();
           if (row > 0) this.selectCell(col, row - 1);
           break;
-
         case 'ArrowDown':
           event.preventDefault();
           if (row < this.rowcount - 1) this.selectCell(col, row + 1);
           break;
-
         case 'ArrowLeft':
           event.preventDefault();
           if (col > 0) this.selectCell(col - 1, row);
           break;
-
         case 'ArrowRight':
           event.preventDefault();
           if (col < this.colcount - 1) this.selectCell(col + 1, row);
           break;
-
         case 'Backspace':
           event.preventDefault();
           this.clearCellData(row, col);
           break;
-
         case 'Tab':
           event.preventDefault();
-          
-          // Save current cell if editing
-          if (this.editingCell.col !== null) {
-            this.saveCell(row, col);
-          }
-
+          if (this.editingCell.col !== null) this.saveCell(row, col);
           if (event.shiftKey) {
-            // Shift + Tab: Move left
             if (col > 0) this.selectCell(col - 1, row);
           } else {
-            // Tab: Move right
             if (col < this.colcount - 1) this.selectCell(col + 1, row);
           }
           break;
@@ -611,6 +739,55 @@ export default {
         await this.createTableHTML();
       }
     },
+
+    async copyCell() {
+      if (this.selectedCell.col === null || this.selectedCell.row === null) return;
+      const { row, col } = this.selectedCell;
+      const value = this.tableData[row][col] || '';
+
+      try {
+        await navigator.clipboard.writeText(value);
+        this.closeContextMenuCell();
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+      }
+    },
+
+    async cutCell() {
+      if (this.selectedCell.col === null || this.selectedCell.row === null) return;
+      const { row, col } = this.selectedCell;
+      const value = this.tableData[row][col] || '';
+      this.clearCellData(row, col);
+
+      try {
+        await navigator.clipboard.writeText(value);
+        this.closeContextMenuCell();
+      } catch (error) {
+        console.error('Failed to cut to clipboard:', error);
+      }
+    },
+
+    async pasteCell() {
+      if (this.selectedCell.col === null || this.selectedCell.row === null) return;
+      const { row, col } = this.selectedCell;
+
+      try {
+        const text = await navigator.clipboard.readText();
+
+        this.tableData[row][col] = text;
+        await axios.post('/api/table/edit-cell', {
+          filename: this.filename,
+          pagenum: this.currentPage,
+          rowindex: row,
+          colindex: col,
+          data: text
+        });
+
+        this.closeContextMenuCell();
+      } catch (err) {
+        console.error('Failed to paste from clipboard:', err);
+      }
+    },
   },
   
   async mounted() {
@@ -620,6 +797,8 @@ export default {
     window.addEventListener('click', this.closeContextMenuCell);
     window.addEventListener('click', this.closeContextMenuCol);
     window.addEventListener('click', this.closeContextMenuRow);
+    window.addEventListener('click', this.closeInsertSubmenuCol);
+    window.addEventListener('click', this.closeInsertSubmenuRow);
     window.addEventListener('keydown', this.handleKeyDown);
   },
 
@@ -627,6 +806,8 @@ export default {
     window.removeEventListener('click', this.closeContextMenuCell);
     window.removeEventListener('click', this.closeContextMenuCol);
     window.removeEventListener('click', this.closeContextMenuRow);
+    window.addEventListener('click', this.closeInsertSubmenuCol);
+    window.addEventListener('click', this.closeInsertSubmenuRow);
     window.removeEventListener('keydown', this.handleKeyDown);
   }
 }
@@ -853,6 +1034,13 @@ th, td {
 .menu-item:hover {
   background-color: #f2f2f2;
   color: #000000;
+}
+
+.header-highlighted {
+  background-color: #d4d4d4;
+  color: var(--color-primary);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-primary);
 }
 
 .modal-overlay {
